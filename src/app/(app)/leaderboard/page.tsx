@@ -53,54 +53,34 @@ export default function LeaderboardPage() {
 
     const startDate = ranges[tab].toISOString();
 
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("xp", { ascending: false })
-      .limit(50);
+    const { data: rows } = await supabase.rpc("get_leaderboard", {
+      p_start_date: startDate,
+    });
 
-    if (!profiles || cancelledRef.current) {
+    if (!rows || cancelledRef.current) {
       setEntries([]);
       setLoading(false);
       return;
     }
 
-    const enriched = await Promise.all(
-      profiles.map(async (profile) => {
-        const { data: xpTx } = await supabase
-          .from("xp_transactions")
-          .select("amount")
-          .eq("user_id", profile.id)
-          .gte("created_at", startDate);
+    const entries: LeaderboardEntry[] = rows.map((r: Record<string, unknown>) => ({
+      profile: {
+        id: r.id,
+        username: r.username,
+        display_name: r.display_name,
+        avatar_url: r.avatar_url,
+        level: r.level,
+        xp: r.xp,
+        current_streak: r.current_streak,
+        equipped_badge: r.equipped_badge,
+        equipped_title: r.equipped_title,
+      } as Profile,
+      period_xp: Number(r.period_xp ?? 0),
+      period_seconds: Number(r.period_seconds ?? 0),
+      period_sessions: Number(r.period_sessions ?? 0),
+    }));
 
-        const { data: sess } = await supabase
-          .from("study_sessions")
-          .select("actual_duration")
-          .eq("user_id", profile.id)
-          .eq("status", "completed")
-          .gte("started_at", startDate);
-
-        const period_xp = (xpTx ?? []).reduce(
-          (sum, t) => sum + (t.amount ?? 0),
-          0,
-        );
-        const period_seconds = (sess ?? []).reduce(
-          (sum, s) => sum + (s.actual_duration ?? 0),
-          0,
-        );
-
-        return {
-          profile,
-          period_xp,
-          period_seconds,
-          period_sessions: (sess ?? []).length,
-        };
-      }),
-    );
-
-    if (cancelledRef.current) return;
-    enriched.sort((a, b) => b.period_xp - a.period_xp);
-    setEntries(enriched);
+    setEntries(entries);
     setLoading(false);
   }, [tab, supabase]);
 
