@@ -1,0 +1,594 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fafafa;
+  --foreground: #0a0a0a;
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+  --primary: #6c5ce7;
+  --primary-light: #a29bfe;
+  --primary-dark: #5541d6;
+  --secondary: #00cec9;
+  --accent: #fd79a8;
+  --success: #00b894;
+  --warning: #fdcb6e;
+  --danger: #e17055;
+  --muted: #f1f3f5;
+  --muted-foreground: #868e96;
+  --border: #e9ecef;
+  --ring: #6c5ce7;
+  --xp-gradient-from: #6c5ce7;
+  --xp-gradient-to: #a29bfe;
+  --level-glow: rgba(108, 92, 231, 0.3);
+}
+
+.dark {
+  --background: #0f0f14;
+  --foreground: #e8e8ed;
+  --card: #1a1a24;
+  --card-foreground: #e8e8ed;
+  --primary: #7c6cf7;
+  --primary-light: #b2a9fe;
+  --primary-dark: #6c5ce7;
+  --secondary: #00e0db;
+  --accent: #ff8cb3;
+  --success: #00d9a7;
+  --warning: #ffe066;
+  --danger: #ff7675;
+  --muted: #22222e;
+  --muted-foreground: #8b8ba0;
+  --border: #2a2a38;
+  --ring: #7c6cf7;
+  --xp-gradient-from: #7c6cf7;
+  --xp-gradient-to: #b2a9fe;
+  --level-glow: rgba(124, 108, 247, 0.4);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-light: var(--primary-light);
+  --color-primary-dark: var(--primary-dark);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 var(--level-glow); }
+  50% { box-shadow: 0 0 20px 4px var(--level-glow); }
+}
+
+@keyframes levelUp {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s ease-out forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-level-up {
+  animation: levelUp 0.6s ease-in-out;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.xp-bar {
+  background: linear-gradient(90deg, var(--xp-gradient-from), var(--xp-gradient-to));
+}
+
+.card-glow:hover {
+  box-shadow: 0 0 30px -5px var(--level-glow);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--muted);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  border-radius: 3px;
+}
+
+
+/* ===== Animated Backgrounds ===== */
+
+body {
+  transition: background-color 0.6s ease;
+}
+
+/* Glass cards — let backgrounds shine through */
+.bg-card {
+  background-color: color-mix(in srgb, var(--card) 78%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* ---------- 1. Gradient Waves: flowing neon mesh ---------- */
+@keyframes waves-blob-a {
+  0%, 100% { transform: translate(-10%, -10%) scale(1); }
+  33% { transform: translate(30vw, 20vh) scale(1.3); }
+  66% { transform: translate(10vw, 50vh) scale(0.9); }
+}
+@keyframes waves-blob-b {
+  0%, 100% { transform: translate(110%, -10%) scale(1.2); }
+  50% { transform: translate(40vw, 40vh) scale(0.8); }
+}
+@keyframes waves-blob-c {
+  0%, 100% { transform: translate(50%, 110%) scale(1); }
+  50% { transform: translate(20vw, 30vh) scale(1.4); }
+}
+.bg-gradient-waves {
+  background: #0d0a1a;
+}
+.bg-gradient-waves::before,
+.bg-gradient-waves::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.bg-gradient-waves::before {
+  background:
+    radial-gradient(ellipse 45% 45% at 25% 25%, rgba(124, 108, 247, 0.55), transparent 70%),
+    radial-gradient(ellipse 40% 40% at 75% 65%, rgba(0, 206, 201, 0.4), transparent 70%);
+  animation: waves-blob-a 22s ease-in-out infinite;
+  filter: blur(40px);
+}
+.bg-gradient-waves::after {
+  background:
+    radial-gradient(ellipse 35% 35% at 60% 30%, rgba(253, 121, 168, 0.35), transparent 70%),
+    radial-gradient(ellipse 45% 40% at 15% 85%, rgba(108, 92, 231, 0.45), transparent 70%);
+  animation: waves-blob-c 28s ease-in-out infinite;
+  filter: blur(50px);
+}
+
+/* ---------- 2. Aurora: dancing northern lights curtains ---------- */
+@keyframes aurora-sway {
+  0%, 100% { transform: translateX(-6%) skewX(-8deg) scaleY(1); opacity: 0.7; }
+  50% { transform: translateX(6%) skewX(8deg) scaleY(1.15); opacity: 1; }
+}
+@keyframes aurora-sway-alt {
+  0%, 100% { transform: translateX(5%) skewX(10deg); opacity: 0.9; }
+  50% { transform: translateX(-5%) skewX(-12deg); opacity: 0.6; }
+}
+.bg-aurora {
+  background: linear-gradient(180deg, #02100c 0%, #04201a 55%, #061510 100%);
+}
+.bg-aurora::before {
+  content: "";
+  position: absolute;
+  inset: -20% -10% 30% -10%;
+  background:
+    linear-gradient(100deg, transparent 15%, rgba(0, 212, 170, 0.5) 30%, rgba(64, 240, 208, 0.65) 38%, transparent 52%),
+    linear-gradient(80deg, transparent 40%, rgba(9, 132, 227, 0.45) 55%, rgba(108, 92, 231, 0.4) 62%, transparent 75%);
+  filter: blur(28px);
+  animation: aurora-sway 11s ease-in-out infinite;
+}
+.bg-aurora::after {
+  content: "";
+  position: absolute;
+  inset: -10% -10% 45% -10%;
+  background:
+    linear-gradient(95deg, transparent 25%, rgba(0, 232, 180, 0.35) 42%, transparent 58%),
+    linear-gradient(85deg, transparent 55%, rgba(162, 155, 254, 0.3) 72%, transparent 85%);
+  filter: blur(36px);
+  animation: aurora-sway-alt 14s ease-in-out infinite;
+}
+
+/* ---------- 3. Particle Rain: falling glowing dust ---------- */
+@keyframes dust-fall {
+  0% { background-position: 0 -100vh, 0 -100vh, 0 -100vh; }
+  100% { background-position: 60px 100vh, -40px 100vh, 30px 100vh; }
+}
+.bg-particle-rain {
+  background: #0e0618;
+}
+.bg-particle-rain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(2px 2px at 10% 0%, rgba(176, 138, 255, 0.9), transparent),
+    radial-gradient(2px 2px at 32% 0%, rgba(0, 206, 201, 0.8), transparent),
+    radial-gradient(1.5px 1.5px at 54% 0%, rgba(253, 121, 168, 0.8), transparent),
+    radial-gradient(2.5px 2.5px at 76% 0%, rgba(176, 138, 255, 0.9), transparent),
+    radial-gradient(1.5px 1.5px at 90% 0%, rgba(0, 206, 201, 0.7), transparent),
+    radial-gradient(2px 2px at 20% 0%, rgba(253, 121, 168, 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 64% 0%, rgba(176, 138, 255, 0.8), transparent),
+    radial-gradient(2px 2px at 44% 0%, rgba(0, 206, 201, 0.9), transparent),
+    radial-gradient(1.5px 1.5px at 82% 0%, rgba(253, 121, 168, 0.8), transparent);
+  background-size: 100% 220vh;
+  animation: dust-fall 9s linear infinite;
+}
+.bg-particle-rain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(3px 3px at 15% 0%, rgba(208, 184, 255, 1), transparent),
+    radial-gradient(2px 2px at 48% 0%, rgba(208, 184, 255, 0.9), transparent),
+    radial-gradient(3.5px 3.5px at 70% 0%, rgba(0, 224, 219, 0.9), transparent),
+    radial-gradient(2.5px 2.5px at 92% 0%, rgba(208, 184, 255, 0.85), transparent);
+  background-size: 100% 160vh;
+  animation: dust-fall 6s linear infinite;
+  filter: drop-shadow(0 0 6px rgba(176, 138, 255, 0.8));
+}
+
+/* ---------- 4. Matrix: digital rain + scanline ---------- */
+@keyframes matrix-scroll {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 0 600px, 0 900px; }
+}
+@keyframes scanline {
+  0% { top: -10%; }
+  100% { top: 110%; }
+}
+.bg-matrix {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(0, 255, 101, 0.08), transparent 70%),
+    #040d06;
+}
+.bg-matrix::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(90deg, transparent 0 46px, rgba(0, 255, 101, 0.16) 46px 49px, transparent 49px 120px),
+    repeating-linear-gradient(90deg, transparent 0 74px, rgba(0, 255, 101, 0.09) 74px 76px, transparent 76px 160px);
+  background-size: 100% 200px, 100% 300px;
+  mask-image: repeating-linear-gradient(180deg, black 0 14px, transparent 14px 26px);
+  -webkit-mask-image: repeating-linear-gradient(180deg, black 0 14px, transparent 14px 26px);
+  animation: matrix-scroll 2.6s linear infinite;
+}
+.bg-matrix::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(180deg, transparent, rgba(0, 255, 101, 0.12), transparent);
+  animation: scanline 5s linear infinite;
+}
+
+/* ---------- 5. Starry Night: layered twinkling + shooting star ---------- */
+@keyframes twinkle-slow {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.9; }
+}
+@keyframes twinkle-fast {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 0.25; }
+}
+@keyframes shooting-star {
+  0%, 92% { transform: translate(0, 0) rotate(215deg); opacity: 0; }
+  93% { opacity: 1; }
+  100% { transform: translate(-60vw, 45vh) rotate(215deg); opacity: 0; }
+}
+.bg-starry {
+  background:
+    radial-gradient(ellipse 90% 60% at 70% 10%, rgba(108, 92, 231, 0.14), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 20% 90%, rgba(255, 224, 102, 0.05), transparent 60%),
+    linear-gradient(180deg, #06061a 0%, #0a0a24 100%);
+}
+.bg-starry::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 18%, #fff, transparent),
+    radial-gradient(1px 1px at 28% 42%, #fff, transparent),
+    radial-gradient(2px 2px at 41% 12%, #ffe066, transparent),
+    radial-gradient(1px 1px at 53% 68%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 67% 28%, #a29bfe, transparent),
+    radial-gradient(1px 1px at 79% 55%, #fff, transparent),
+    radial-gradient(2px 2px at 91% 15%, #fff, transparent),
+    radial-gradient(1px 1px at 17% 78%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 37% 88%, #fff, transparent),
+    radial-gradient(1px 1px at 61% 84%, #ffe066, transparent),
+    radial-gradient(1.5px 1.5px at 83% 74%, #a29bfe, transparent),
+    radial-gradient(1px 1px at 47% 34%, #fff, transparent);
+  animation: twinkle-slow 5s ease-in-out infinite;
+}
+.bg-starry::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(2px 2px at 22% 28%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 58% 8%, #ffe066, transparent),
+    radial-gradient(2px 2px at 86% 44%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 33% 58%, #a29bfe, transparent);
+  animation: twinkle-fast 2.4s ease-in-out infinite;
+}
+
+/* ---------- 6. Underwater: god-rays + rising bubbles ---------- */
+@keyframes rays-sway {
+  0%, 100% { transform: translateX(-3%) rotate(-2deg); opacity: 0.8; }
+  50% { transform: translateX(3%) rotate(2deg); opacity: 1; }
+}
+@keyframes bubbles-rise {
+  0% { background-position: 0 100vh, 0 100vh; }
+  100% { background-position: 30px -60vh, -20px -60vh; }
+}
+.bg-underwater {
+  background: linear-gradient(180deg, #03101e 0%, #062033 60%, #041520 100%);
+}
+.bg-underwater::before {
+  content: "";
+  position: absolute;
+  inset: -10% -20%;
+  background:
+    conic-gradient(from 180deg at 30% -10%, transparent 40%, rgba(72, 202, 228, 0.13) 47%, transparent 54%),
+    conic-gradient(from 180deg at 60% -10%, transparent 42%, rgba(0, 180, 216, 0.16) 50%, transparent 58%),
+    conic-gradient(from 180deg at 85% -10%, transparent 44%, rgba(144, 224, 240, 0.1) 51%, transparent 56%);
+  filter: blur(18px);
+  animation: rays-sway 9s ease-in-out infinite;
+}
+.bg-underwater::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle 4px at 12% 100%, rgba(255, 255, 255, 0.35) 40%, transparent 60%),
+    radial-gradient(circle 6px at 34% 100%, rgba(255, 255, 255, 0.25) 40%, transparent 60%),
+    radial-gradient(circle 3px at 56% 100%, rgba(255, 255, 255, 0.4) 40%, transparent 60%),
+    radial-gradient(circle 5px at 78% 100%, rgba(255, 255, 255, 0.3) 40%, transparent 60%),
+    radial-gradient(circle 3px at 91% 100%, rgba(255, 255, 255, 0.35) 40%, transparent 60%);
+  background-size: 100% 130vh;
+  animation: bubbles-rise 12s linear infinite;
+}
+
+/* ---------- 7. Cozy Fireplace: ember glow + rising sparks ---------- */
+@keyframes ember-flicker {
+  0%, 100% { opacity: 0.75; transform: scale(1); }
+  20% { opacity: 0.95; transform: scale(1.06); }
+  45% { opacity: 0.6; transform: scale(0.97); }
+  70% { opacity: 0.88; transform: scale(1.04); }
+  85% { opacity: 0.7; transform: scale(0.99); }
+}
+@keyframes sparks-rise {
+  0% { background-position: 0 0, 0 0; opacity: 0; }
+  8% { opacity: 1; }
+  90% { opacity: 0.8; }
+  100% { background-position: 40px -110vh, -30px -90vh; opacity: 0; }
+}
+.bg-fireplace {
+  background: linear-gradient(180deg, #100a06 0%, #160c06 100%);
+}
+.bg-fireplace::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 55% 45% at 50% 105%, rgba(255, 128, 64, 0.55), transparent 65%),
+    radial-gradient(ellipse 35% 30% at 42% 100%, rgba(255, 204, 0, 0.4), transparent 60%),
+    radial-gradient(ellipse 30% 28% at 60% 100%, rgba(255, 69, 0, 0.45), transparent 60%);
+  filter: blur(24px);
+  animation: ember-flicker 2.8s ease-in-out infinite;
+}
+.bg-fireplace::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(2px 2px at 46% 100%, rgba(255, 190, 90, 1), transparent),
+    radial-gradient(1.5px 1.5px at 52% 100%, rgba(255, 140, 60, 1), transparent),
+    radial-gradient(2px 2px at 57% 100%, rgba(255, 204, 0, 0.9), transparent),
+    radial-gradient(1.5px 1.5px at 43% 100%, rgba(255, 170, 80, 0.9), transparent),
+    radial-gradient(2.5px 2.5px at 49% 100%, rgba(255, 210, 120, 0.85), transparent);
+  background-size: 100% 120vh;
+  animation: sparks-rise 7s linear infinite;
+  filter: blur(0.4px);
+}
+
+/* ---------- 8. Anime Room: lo-fi sunset + sakura petals ---------- */
+@keyframes sunset-breathe {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+@keyframes petals-fall {
+  0% { background-position: 0 -15vh, 0 -15vh; }
+  100% { background-position: 120px 115vh, -90px 115vh; }
+}
+.bg-anime-room {
+  background:
+    radial-gradient(ellipse 60% 40% at 75% 20%, rgba(255, 144, 192, 0.2), transparent 65%),
+    radial-gradient(ellipse 50% 35% at 20% 30%, rgba(144, 176, 255, 0.16), transparent 60%),
+    linear-gradient(180deg, #150a20 0%, #1e1030 55%, #140b1e 100%);
+  animation: sunset-breathe 8s ease-in-out infinite;
+}
+.bg-anime-room::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle 3px at 8% 0%, rgba(240, 176, 216, 0.9) 30%, transparent 70%),
+    radial-gradient(circle 2.5px at 26% 0%, rgba(240, 176, 216, 0.8) 30%, transparent 70%),
+    radial-gradient(circle 3.5px at 44% 0%, rgba(255, 200, 230, 0.85) 30%, transparent 70%),
+    radial-gradient(circle 2px at 63% 0%, rgba(240, 176, 216, 0.8) 30%, transparent 70%),
+    radial-gradient(circle 3px at 81% 0%, rgba(255, 200, 230, 0.9) 30%, transparent 70%),
+    radial-gradient(circle 2.5px at 94% 0%, rgba(240, 176, 216, 0.8) 30%, transparent 70%);
+  background-size: 100% 125vh;
+  animation: petals-fall 13s linear infinite;
+}
+.bg-anime-room::after {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 0;
+  height: 35%;
+  background:
+    radial-gradient(ellipse 90% 100% at 50% 100%, rgba(255, 144, 192, 0.12), transparent 70%);
+  filter: blur(20px);
+}
+
+/* ---------- 9. Space Galaxy: nebula clouds + parallax stars ---------- */
+@keyframes nebula-drift {
+  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  50% { transform: translate(3%, -2%) rotate(4deg) scale(1.08); }
+}
+@keyframes stars-parallax {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: -80px 160px, -40px 90px; }
+}
+.bg-galaxy {
+  background: linear-gradient(160deg, #050510 0%, #0a0a20 50%, #060618 100%);
+}
+.bg-galaxy::before {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  background:
+    radial-gradient(ellipse 30% 22% at 30% 35%, rgba(128, 128, 255, 0.22), transparent 70%),
+    radial-gradient(ellipse 26% 20% at 70% 60%, rgba(192, 128, 255, 0.18), transparent 70%),
+    radial-gradient(ellipse 22% 16% at 55% 25%, rgba(255, 128, 192, 0.14), transparent 70%),
+    radial-gradient(ellipse 28% 20% at 20% 75%, rgba(96, 96, 208, 0.16), transparent 70%);
+  filter: blur(30px);
+  animation: nebula-drift 26s ease-in-out infinite;
+}
+.bg-galaxy::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 8% 12%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 22% 58%, #b0b0ff, transparent),
+    radial-gradient(2px 2px at 38% 22%, #c080ff, transparent),
+    radial-gradient(1px 1px at 52% 72%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 65% 8%, #8080ff, transparent),
+    radial-gradient(1px 1px at 78% 48%, #fff, transparent),
+    radial-gradient(2px 2px at 88% 82%, #ff80c0, transparent),
+    radial-gradient(1px 1px at 15% 85%, #b0b0ff, transparent),
+    radial-gradient(1.5px 1.5px at 45% 35%, #fff, transparent),
+    radial-gradient(1px 1px at 72% 62%, #c080ff, transparent),
+    radial-gradient(1px 1px at 30% 92%, #8080ff, transparent),
+    radial-gradient(2px 2px at 92% 15%, #fff, transparent);
+  animation: stars-parallax 60s linear infinite, twinkle-slow 6s ease-in-out infinite;
+}
+
+/* ---------- 10. Rainy Window: rain streaks + lightning ---------- */
+@keyframes rain-pour {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: -60px 500px, -100px 700px; }
+}
+@keyframes lightning-flash {
+  0%, 88%, 92%, 100% { opacity: 0; }
+  89%, 91% { opacity: 0.55; }
+  90% { opacity: 0.15; }
+}
+.bg-rain {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(60, 90, 130, 0.25), transparent 65%),
+    linear-gradient(180deg, #070b13 0%, #0d1522 100%);
+}
+.bg-rain::before {
+  content: "";
+  position: absolute;
+  inset: -10% 0;
+  background-image:
+    repeating-linear-gradient(175deg, transparent 0 26px, rgba(144, 192, 232, 0.22) 26px 27px, transparent 27px 60px),
+    repeating-linear-gradient(172deg, transparent 0 42px, rgba(108, 160, 208, 0.14) 42px 43px, transparent 43px 90px);
+  animation: rain-pour 0.9s linear infinite;
+}
+.bg-rain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 45% at 70% 5%, rgba(200, 225, 255, 0.5), transparent 60%);
+  opacity: 0;
+  animation: lightning-flash 11s linear infinite;
+}
+/* ===== Name Effects ===== */
+@keyframes name-rainbow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+.name-effect-rainbow {
+  background: linear-gradient(90deg, #ff6b6b, #ffa94d, #ffe066, #51cf66, #22d3ee, #7c6cf7, #e599f7, #ff6b6b);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  animation: name-rainbow 4s linear infinite;
+}
+
+@keyframes name-neon {
+  0%, 100% { text-shadow: 0 0 4px currentColor, 0 0 12px currentColor, 0 0 28px currentColor; opacity: 1; }
+  50% { text-shadow: 0 0 2px currentColor, 0 0 6px currentColor, 0 0 14px currentColor; opacity: 0.85; }
+}
+.name-effect-neon {
+  animation: name-neon 1.8s ease-in-out infinite;
+}
+
+@keyframes name-gold {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.name-effect-gold {
+  background: linear-gradient(90deg, #b8860b 20%, #ffd700 40%, #fff3c4 50%, #ffd700 60%, #b8860b 80%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  animation: name-gold 3.5s linear infinite;
+}
+
+@keyframes name-fire {
+  0%, 100% { text-shadow: 0 -2px 8px #ff4500, 0 -4px 16px #ff6b35, 0 -6px 24px #ffcc00; }
+  33% { text-shadow: 0 -3px 10px #ff4500, 0 -6px 20px #ffb347, 0 -9px 30px #ff6b35; }
+  66% { text-shadow: 0 -1px 6px #ff4500, 0 -3px 14px #ff8c00, 0 -5px 20px #ffcc00; }
+}
+.name-effect-fire {
+  color: #ffb347 !important;
+  animation: name-fire 1.6s ease-in-out infinite;
+}
