@@ -592,3 +592,18 @@ body {
   color: #ffb347 !important;
   animation: name-fire 1.6s ease-in-out infinite;
 }
+
+/* ===== Mobile / Safe-Area Helpers ===== */
+.safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+.safe-x {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+/* Minimum 44px touch targets for interactive elements */
+@media (pointer: coarse) {
+  button, a, [role="button"], select, input[type="checkbox"], input[type="radio"] {
+    min-height: 44px;
+  }
+}

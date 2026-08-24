@@ -126,7 +126,7 @@ export default function RoomPage({
     [],
   );
 
-  const loadLessons = useCallback(async (subjectId: string) => {
+  const loadLessons = useCallback(async (subjectId: string): Promise<boolean> => {
     const { data } = await supabaseRef.current
       .from("lessons")
       .select("*")
@@ -134,6 +134,11 @@ export default function RoomPage({
       .order("position", { ascending: true });
     if (data) {
       setLessons(data as Lesson[]);
+      if (data.length === 0) {
+        setPartsMap({});
+        setExpandedLessons(new Set());
+        return false;
+      }
       const { data: partsData } = await supabaseRef.current
         .from("lesson_parts")
         .select("*")
@@ -157,7 +162,9 @@ export default function RoomPage({
         setPartsMap({});
         setExpandedLessons(new Set());
       }
+      return true;
     }
+    return false;
   }, []);
 
   const toggleLesson = useCallback(async (lesson: Lesson) => {
@@ -284,7 +291,16 @@ export default function RoomPage({
 
         if (typed.subject_id) {
           setActiveSubjectId(typed.subject_id);
-          loadLessons(typed.subject_id);
+          const found = await loadLessons(typed.subject_id);
+          if (!found && mySubjects && mySubjects.length > 0) {
+            const fallback = mySubjects[0];
+            setActiveSubjectId(fallback.id);
+            await loadLessons(fallback.id);
+          }
+        } else if (mySubjects && mySubjects.length > 0) {
+          const fallback = mySubjects[0];
+          setActiveSubjectId(fallback.id);
+          await loadLessons(fallback.id);
         }
 
         if (
@@ -451,7 +467,16 @@ export default function RoomPage({
 
       if (room.subject_id) {
         setActiveSubjectId(room.subject_id);
-        loadLessons(room.subject_id);
+        const found = await loadLessons(room.subject_id);
+        if (!found && mySubjects && mySubjects.length > 0) {
+          const fallback = mySubjects[0];
+          setActiveSubjectId(fallback.id);
+          await loadLessons(fallback.id);
+        }
+      } else if (mySubjects && mySubjects.length > 0) {
+        const fallback = mySubjects[0];
+        setActiveSubjectId(fallback.id);
+        await loadLessons(fallback.id);
       }
     } finally {
       setJoining(false);
@@ -467,7 +492,7 @@ export default function RoomPage({
         .insert({
           user_id: currentUserId,
           room_id: room.id,
-          subject_id: room.subject_id,
+          subject_id: activeSubjectId ?? room.subject_id,
           study_method: studyMethod,
           planned_duration:
             studyMethod === "target"
@@ -762,24 +787,24 @@ export default function RoomPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <Link href="/rooms">
-            <Button variant="ghost" size="sm" className="gap-1">
+            <Button variant="ghost" size="sm" className="gap-1 shrink-0">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">{room.name}</h1>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight truncate">{room.name}</h1>
+            <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-muted-foreground flex-wrap">
               <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
+                <Clock className="h-3 w-3 shrink-0" />
                 {STUDY_METHODS[studyMethod].label}
               </span>
               {room.subjects?.name && (
                 <span className="flex items-center gap-1">
-                  <BookOpen className="h-3 w-3" />
-                  {room.subjects.name}
+                  <BookOpen className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{room.subjects.name}</span>
                 </span>
               )}
               <Badge variant="muted" size="sm">
@@ -788,8 +813,8 @@ export default function RoomPage({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" size="sm" className="gap-1">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <Badge variant="secondary" size="sm" className="gap-1 hidden sm:flex">
             <Users className="h-3 w-3" />
             {members.length}/{room.max_participants}
           </Badge>
@@ -800,7 +825,7 @@ export default function RoomPage({
             className="gap-1"
           >
             <LogOut className="h-3.5 w-3.5" />
-            Leave
+            <span className="hidden sm:inline">Leave</span>
           </Button>
         </div>
       </div>
@@ -828,7 +853,7 @@ export default function RoomPage({
               timer.isRunning && timerMode === "focus" && "animate-pulse-glow",
             )}
           >
-            <CardContent className="flex flex-col items-center gap-4 p-8">
+            <CardContent className="flex flex-col items-center gap-3 sm:gap-4 p-4 sm:p-8">
               <div className="flex items-center gap-2 text-sm">
                 {timerMode === "focus" && timer.isRunning && (
                   <Zap className="h-4 w-4 text-success animate-pulse" />
@@ -851,7 +876,7 @@ export default function RoomPage({
 
               <div
                 className={cn(
-                  "font-mono text-7xl font-bold tabular-nums tracking-tight sm:text-8xl",
+                  "font-mono text-6xl sm:text-7xl md:text-8xl font-bold tabular-nums tracking-tight",
                   timerStatusColor,
                 )}
               >
@@ -930,12 +955,12 @@ export default function RoomPage({
               )}
 
               {showCycles && timer.mode !== "idle" && (
-                <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 px-4 py-2">
+                <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 px-3 sm:px-4 py-2 w-full max-w-xs">
                   <Repeat className={cn("h-4 w-4 shrink-0", autoCycle ? "text-primary" : "text-muted-foreground")} />
-                  <div className="text-left flex-1">
+                  <div className="text-left flex-1 min-w-0">
                     <p className="text-xs font-medium text-foreground">Auto-continue cycles</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {autoCycle ? "Cycles run back-to-back until all finish" : "You confirm each transition"}
+                    <p className="text-[11px] text-muted-foreground">
+                      {autoCycle ? "Cycles run back-to-back" : "You confirm each transition"}
                     </p>
                   </div>
                   <button
@@ -1043,31 +1068,31 @@ export default function RoomPage({
 
           {xpEarned && (
             <Card className="border-success/30 bg-success/5 animate-fade-in">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-success" />
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Zap className="h-5 w-5 text-success shrink-0" />
                     <span className="text-sm font-semibold text-success">
-                      Session Complete! +{xpEarned.total} XP +{xpEarned.coins} 🪙
+                      +{xpEarned.total} XP +{xpEarned.coins} 🪙
                       {xpEarned.boostApplied && (
-                        <span className="ml-2 text-xs text-secondary">({xpEarned.boostMultiplier}x shop boost)</span>
+                        <span className="ml-1 text-xs text-secondary">({xpEarned.boostMultiplier}x boost)</span>
                       )}
                       {xpEarned.goalAction === "boost" && (
-                        <span className="ml-2 text-xs text-emerald-500">({xpEarned.goalMultiplier}x goal boost!)</span>
+                        <span className="ml-1 text-xs text-emerald-500">({xpEarned.goalMultiplier}x goal!)</span>
                       )}
                       {xpEarned.goalAction === "penalty" && (
-                        <span className="ml-2 text-xs text-red-500">({xpEarned.goalMultiplier}x goal penalty)</span>
+                        <span className="ml-1 text-xs text-red-500">({xpEarned.goalMultiplier}x penalty)</span>
                       )}
                     </span>
                   </div>
                   <button
                     onClick={() => setXpEarned(null)}
-                    className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                    className="text-xs text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
                   >
                     Dismiss
                   </button>
                 </div>
-                <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-2 text-xs text-muted-foreground">
                   <div>
                     <span className="text-foreground font-medium">{xpEarned.base}</span> Base ({xpEarned.minutes}min × 3)
                   </div>
@@ -1101,13 +1126,13 @@ export default function RoomPage({
             </Card>
           )}
 
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-2 space-y-4">
+          <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2 space-y-3 sm:space-y-4">
               <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                 <Users className="h-4 w-4" />
                 Participants ({members.length})
               </h2>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
                 {members.map((member) => {
                   const profile = member.profiles as Profile | undefined;
                   const statusInfo =
@@ -1172,7 +1197,7 @@ export default function RoomPage({
                           </Badge>
                           <span className="text-xs tabular-nums text-muted-foreground">
                             {memberTimer}
-                            <span className="ml-1 text-[10px] opacity-70">
+                            <span className="ml-1 text-[11px] opacity-70">
                               {isToday ? "today" : "before today"}
                             </span>
                           </span>
@@ -1411,7 +1436,7 @@ export default function RoomPage({
                                   </button>
                                   <button
                                     onClick={() => reviseLesson(lesson)}
-                                    className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary cursor-pointer opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                                     title="Mark as revised"
                                   >
                                     <RefreshCw className="h-3.5 w-3.5" />

@@ -18,7 +18,7 @@ export function AppShell({ children, user, className }: AppShellProps) {
 
       <main
         className={cn(
-          "flex-1 overflow-y-auto pb-20 md:pb-0",
+          "flex-1 overflow-y-auto pb-24 md:pb-0",
           className,
         )}
       >

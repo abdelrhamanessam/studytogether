@@ -32,10 +32,11 @@ export function MobileNav({ className }: MobileNavProps) {
     <nav
       className={cn(
         "md:hidden fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/80 backdrop-blur-xl",
+        "pb-[env(safe-area-inset-bottom)]",
         className,
       )}
     >
-      <ul className="flex items-center justify-around px-1 py-1">
+      <ul className="flex items-center justify-around px-1 pt-1.5 pb-1">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
@@ -43,7 +44,7 @@ export function MobileNav({ className }: MobileNavProps) {
               <Link
                 href={href}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[10px] font-medium transition-colors",
+                  "flex flex-col items-center gap-0.5 rounded-xl px-3 py-2 text-[11px] font-medium transition-colors min-h-[44px] justify-center",
                   active
                     ? "text-primary"
                     : "text-muted-foreground active:text-foreground",

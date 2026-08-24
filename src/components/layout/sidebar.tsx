@@ -207,7 +207,7 @@ export function Sidebar({ user: initialUser, collapsed: controlledCollapsed, onT
                     {user.equipped_title.text}
                   </span>
                 )}
-                <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+                <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
                   <span className="inline-flex items-center gap-0.5">
                     <Zap size={10} className="text-primary" />
                     Lv. {displayLevel}
@@ -237,7 +237,7 @@ export function Sidebar({ user: initialUser, collapsed: controlledCollapsed, onT
                 size="sm"
                 className="mt-3"
               />
-              <p className="mt-1 text-[10px] text-muted-foreground text-right">
+              <p className="mt-1 text-[11px] text-muted-foreground text-right">
                 {xp.xpToNext} XP to Lv.{xp.level + 1}
               </p>
             </>

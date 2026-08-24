@@ -425,12 +425,12 @@ export default function DashboardPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-medium text-foreground truncate">{ach.name}</p>
-                        <span className={`text-[10px] font-medium uppercase px-1.5 py-0.5 rounded-full border ${RARITY_COLORS[ach.rarity]}`}>
+                        <span className={`text-[11px] font-medium uppercase px-1.5 py-0.5 rounded-full border ${RARITY_COLORS[ach.rarity]}`}>
                           {ach.rarity}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{ach.description}</p>
-                      <p className="text-[10px] text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Unlocked {new Date(ua.unlocked_at).toLocaleDateString()}
                       </p>
                     </div>

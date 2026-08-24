@@ -238,7 +238,7 @@ export default function LeaderboardPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-6 text-right">
+                  <div className="flex items-center gap-3 sm:gap-6 text-right">
                     <div className="hidden sm:block">
                       <p className="text-xs text-muted-foreground">
                         Study Time
@@ -331,7 +331,7 @@ export default function LeaderboardPage() {
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-6 text-right">
+              <div className="flex items-center gap-3 sm:gap-6 text-right">
                 <div className="hidden sm:block">
                   <p className="text-xs text-muted-foreground">Study Time</p>
                   <p className="text-sm font-semibold tabular-nums">

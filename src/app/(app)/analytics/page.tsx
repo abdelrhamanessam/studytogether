@@ -270,7 +270,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="animate-fade-in flex items-center justify-between">
+      <div className="animate-fade-in flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -344,6 +344,7 @@ export default function AnalyticsPage() {
                   tick={{ fill: "#8b8ba0", fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
+                  interval="preserveStartEnd"
                 />
                 <YAxis
                   tick={{ fill: "#8b8ba0", fontSize: 11 }}
@@ -393,7 +394,7 @@ export default function AnalyticsPage() {
                 No subject data for this period
               </div>
             ) : (
-              <div className="flex items-center gap-6">
+              <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
                 <div className="h-48 w-48">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>

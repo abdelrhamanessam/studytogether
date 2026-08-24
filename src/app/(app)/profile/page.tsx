@@ -411,6 +411,7 @@ export default function ProfilePage() {
                     tick={{ fill: "#8b8ba0", fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
+                    interval="preserveStartEnd"
                   />
                   <YAxis
                     tick={{ fill: "#8b8ba0", fontSize: 11 }}
@@ -494,7 +495,7 @@ export default function ProfilePage() {
                       {ach.description}
                     </p>
                     {ach.unlocked && ach.unlocked_at && (
-                      <p className="mt-1 text-[10px] text-primary">
+                      <p className="mt-1 text-xs text-primary">
                         Unlocked{" "}
                         {new Date(ach.unlocked_at).toLocaleDateString(
                           "en-US",

@@ -373,7 +373,7 @@ export default function CreateRoomPage() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">Estimated XP per session</p>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-1 sm:gap-3 text-xs text-muted-foreground">
                   <span>{perCycleXp.totalXp} XP per cycle × {cycleCount} cycles</span>
                   <span className="font-semibold text-primary">= {totalXp} XP total</span>
                 </div>

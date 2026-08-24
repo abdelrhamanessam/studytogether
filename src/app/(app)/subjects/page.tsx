@@ -107,7 +107,7 @@ export default function SubjectsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="animate-fade-in flex items-center justify-between">
+      <div className="animate-fade-in flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Subjects</h1>
           <p className="mt-1 text-sm text-muted-foreground">

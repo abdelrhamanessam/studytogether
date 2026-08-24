@@ -631,7 +631,7 @@ export default function SubjectDetailPage() {
             size="lg"
             xpBar
           />
-          <div className="mt-4 grid grid-cols-4 gap-4 text-center">
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 text-center">
             <div className="rounded-xl bg-muted p-3">
               <p className="text-2xl font-bold text-success">
                 {completedCount}
@@ -803,7 +803,7 @@ export default function SubjectDetailPage() {
                                 )}
                               </button>
 
-                              <span className="text-xs tabular-nums text-muted-foreground">
+                              <span className="hidden sm:inline text-xs tabular-nums text-muted-foreground">
                                 {lesson.position}
                               </span>
 
@@ -842,7 +842,7 @@ export default function SubjectDetailPage() {
                                   size="sm"
                                   className="shrink-0 tabular-nums"
                                 >
-                                  {doneParts}/{lessonParts.length} parts
+                                  {doneParts}/{lessonParts.length}
                                 </Badge>
                               )}
 
@@ -857,6 +857,7 @@ export default function SubjectDetailPage() {
                                         : "muted"
                                 }
                                 size="sm"
+                                className="hidden sm:inline-flex"
                               >
                                 {lesson.status === "not_started"
                                   ? "Not Started"
@@ -869,7 +870,7 @@ export default function SubjectDetailPage() {
                                         : "Done"}
                               </Badge>
 
-                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                 <button
                                   onClick={() => {
                                     setAddingPartFor(addingPartFor === lesson.id ? null : lesson.id);
@@ -908,7 +909,7 @@ export default function SubjectDetailPage() {
                             </div>
 
                             {isExpanded && (
-                              <div className="ml-12 mr-3 mb-1 space-y-0.5 border-l-2 border-border/70 pl-3">
+                              <div className="ml-8 sm:ml-12 mr-3 mb-1 space-y-0.5 border-l-2 border-border/70 pl-3">
                                 {lessonParts.map((part) => (
                                   <div
                                     key={part.id}
@@ -981,7 +982,7 @@ export default function SubjectDetailPage() {
                                         style={{ width: `${partsPct}%` }}
                                       />
                                     </div>
-                                    <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                                       {doneParts}/{lessonParts.length} parts done
                                     </span>
                                   </div>

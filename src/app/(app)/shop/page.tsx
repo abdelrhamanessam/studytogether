@@ -523,7 +523,7 @@ export default function ShopPage() {
                   No daily deals available right now
                 </p>
               ) : (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                   {dailyItems.slice(0, 5).map((entry) => (
                     <ItemCard
                       key={entry.id}
@@ -623,7 +623,7 @@ export default function ShopPage() {
                         {item.description}
                       </p>
 
-                      <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
                         {item.category === "xp_boost" ? (
                           <span className="text-xs text-muted-foreground">Consumable</span>
                         ) : entry.equipped ? (
@@ -654,7 +654,7 @@ export default function ShopPage() {
       )}
 
       {toast ? (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 animate-fade-in">
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 animate-fade-in max-w-[calc(100vw-2rem)]">
           <div
             className={cn(
               "flex items-center gap-2 rounded-full px-4 py-2.5 shadow-lg",
@@ -662,11 +662,11 @@ export default function ShopPage() {
             )}
           >
             {toast.error ? (
-              <CircleDollarSign className="h-4 w-4" />
+              <CircleDollarSign className="h-4 w-4 shrink-0" />
             ) : (
-              <Sparkles className="h-4 w-4" />
+              <Sparkles className="h-4 w-4 shrink-0" />
             )}
-            <span className="text-sm font-medium">{toast.message}</span>
+            <span className="text-sm font-medium break-words">{toast.message}</span>
           </div>
         </div>
       ) : null}

@@ -129,14 +129,14 @@ export default function CreateSubjectPage() {
                   Color
                 </span>
               </label>
-              <div className="grid grid-cols-8 gap-2">
+              <div className="grid grid-cols-6 gap-2 sm:grid-cols-8">
                 {PRESET_COLORS.map((color) => (
                   <button
                     key={color}
                     type="button"
                     onClick={() => setValue("color", color)}
                     className={cn(
-                      "relative h-9 w-9 cursor-pointer rounded-xl transition-all duration-150 hover:scale-110",
+                      "relative aspect-square w-full cursor-pointer rounded-xl transition-all duration-150 hover:scale-110",
                       selectedColor === color &&
                         "ring-2 ring-foreground ring-offset-2 ring-offset-card scale-110",
                     )}
