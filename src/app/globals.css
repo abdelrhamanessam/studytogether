@@ -152,6 +152,32 @@ body {
   -webkit-backdrop-filter: blur(14px);
 }
 
+/* Reduce expensive blur on mobile for performance */
+@media (max-width: 768px) {
+  .bg-card {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  /* Disable expensive animations on mobile */
+  .animate-fade-in,
+  .animate-slide-up {
+    animation: none;
+    opacity: 1;
+  }
+  .animate-pulse-glow {
+    animation: none;
+  }
+}
+
+/* Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* ---------- 1. Gradient Waves: flowing neon mesh ---------- */
 @keyframes waves-blob-a {
   0%, 100% { transform: translate(-10%, -10%) scale(1); }

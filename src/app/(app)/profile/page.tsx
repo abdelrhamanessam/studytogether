@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Calendar,
   Clock,
@@ -13,6 +14,7 @@ import {
   TrendingUp,
   CheckCircle2,
   XCircle,
+  LogOut,
 } from "lucide-react";
 import {
   BarChart,
@@ -31,6 +33,7 @@ import {
 } from "@/lib/utils";
 import { xpProgress } from "@/lib/xp";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -46,6 +49,7 @@ interface EnrichedAchievement extends Achievement {
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [supabase] = useState(() => createClient());
   const [profile, setProfile] = useState<Profile | null>(null);
   const [achievements, setAchievements] = useState<EnrichedAchievement[]>([]);
@@ -56,6 +60,11 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [goalSaving, setGoalSaving] = useState(false);
   const [goalValue, setGoalValue] = useState<number>(0);
+
+  const handleLogout = useCallback(async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  }, [supabase, router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -274,7 +283,7 @@ export default function ProfilePage() {
             {xp && (
               <div className="mt-4 max-w-sm">
                 <ProgressBar
-                  value={xp.progress}
+                  value={xp.progress * 100}
                   xpBar
                   size="md"
                   showPercentage
@@ -554,6 +563,17 @@ export default function ProfilePage() {
           )}
         </CardContent>
       </Card>
+
+      <div className="flex justify-center pt-2 pb-8">
+        <Button
+          variant="outline"
+          onClick={handleLogout}
+          className="gap-2 text-danger hover:bg-danger/10 hover:text-danger hover:border-danger/30"
+        >
+          <LogOut size={16} />
+          Sign Out
+        </Button>
+      </div>
     </div>
   );
 }
