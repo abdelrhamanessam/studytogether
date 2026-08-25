@@ -78,7 +78,7 @@ function getDiscountedPrice(price: number, discount: number): number {
 function RarityBadge({ rarity }: { rarity: ShopItem["rarity"] }) {
   const config = RARITY_CONFIG[rarity];
   return (
-    <Badge variant={config.badgeVariant ?? "default"} className={config.badgeClassName}>
+    <Badge variant={config.badgeVariant ?? "default"} className={cn("shrink-0", config.badgeClassName)}>
       {config.label}
     </Badge>
   );
@@ -139,7 +139,7 @@ function ItemCard({ item, owned, equipped, discount, coins, purchasing, loading,
       ) : null}
 
       <CardContent className="flex flex-1 flex-col gap-3 pt-0">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
           {fxClass ? (
             <h3 className={cn("text-sm font-semibold leading-snug", fxClass)}>{item.name}</h3>
           ) : (
@@ -150,7 +150,7 @@ function ItemCard({ item, owned, equipped, discount, coins, purchasing, loading,
 
         <p className="flex-1 text-xs leading-relaxed text-muted-foreground">{item.description}</p>
 
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
           <div className="flex items-center gap-1">
             <CircleDollarSign className="h-4 w-4 shrink-0 text-warning" />
             {discount ? (
@@ -166,7 +166,7 @@ function ItemCard({ item, owned, equipped, discount, coins, purchasing, loading,
           </div>
 
           {owned ? (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 ml-auto shrink-0">
               {!isBoost && equipped && (
                 <Badge variant="default" size="sm" className="gap-1">
                   <Check className="h-3 w-3" />
@@ -209,6 +209,7 @@ function ItemCard({ item, owned, equipped, discount, coins, purchasing, loading,
               loading={purchasing}
               disabled={!canAfford}
               onClick={() => onBuy(item.id)}
+              className="ml-auto shrink-0"
             >
               {!purchasing && <ShoppingCart className="h-3.5 w-3.5" />}
               {canAfford ? "Buy" : "Low coins"}
@@ -442,7 +443,7 @@ export default function ShopPage() {
 
   return (
     <div className="space-y-6 pb-24">
-      <div className="sticky top-0 z-20 -mx-1 bg-background/80 px-1 pb-3 pt-1 backdrop-blur-md">
+      <div className="sticky top-0 z-20 -mx-1 bg-background/95 px-1 pb-3 pt-1 md:bg-background/80 md:backdrop-blur-md">
         <div className="animate-fade-in flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

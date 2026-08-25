@@ -145,36 +145,13 @@ body {
   transition: background-color 0.6s ease;
 }
 
-/* Glass cards — let backgrounds shine through */
-.bg-card {
-  background-color: color-mix(in srgb, var(--card) 78%, transparent);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-}
-
-/* Reduce expensive blur on mobile for performance */
-@media (max-width: 768px) {
+/* Glass cards — let backgrounds shine through (desktop only; disabled on
+   mobile by the Mobile Performance block below for performance) */
+@media (min-width: 769px) {
   .bg-card {
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-  }
-  /* Disable expensive animations on mobile */
-  .animate-fade-in,
-  .animate-slide-up {
-    animation: none;
-    opacity: 1;
-  }
-  .animate-pulse-glow {
-    animation: none;
-  }
-}
-
-/* Respect user motion preferences */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    background-color: color-mix(in srgb, var(--card) 78%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
   }
 }
 
@@ -631,5 +608,37 @@ body {
 @media (pointer: coarse) {
   button, a, [role="button"], select, input[type="checkbox"], input[type="radio"] {
     min-height: 44px;
+  }
+}
+
+/* ===== Mobile Performance =====
+   backdrop-filter is extremely expensive on mobile GPUs and was the main
+   cause of scroll jank. Cards become fully opaque on small screens instead. */
+@media (max-width: 768px) {
+  .bg-card {
+    background-color: var(--card) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  /* Kill all decorative animations on mobile */
+  .animate-fade-in,
+  .animate-slide-up,
+  .animate-pulse-glow,
+  .animate-shimmer,
+  .animate-level-up {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+  body {
+    transition: none;
+  }
+}
+
+/* Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

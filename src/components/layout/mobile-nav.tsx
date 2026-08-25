@@ -32,7 +32,7 @@ export function MobileNav({ className }: MobileNavProps) {
     <nav
       className={cn(
         "md:hidden fixed inset-x-0 bottom-0 z-50 border-t border-border",
-        "bg-card/90 backdrop-blur-md",
+        "bg-card",
         "pb-[env(safe-area-inset-bottom)]",
         className,
       )}
