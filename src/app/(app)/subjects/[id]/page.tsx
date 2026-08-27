@@ -233,9 +233,10 @@ export default function SubjectDetailPage() {
   }
 
   async function reviseLesson(lesson: Lesson) {
+    const newCount = (lesson.revision_count ?? 0) + 1;
     const { error } = await supabase
       .from("lessons")
-      .update({ status: "revised", completed_at: new Date().toISOString() })
+      .update({ status: "revised", completed_at: new Date().toISOString(), revision_count: newCount })
       .eq("id", lesson.id);
     if (error) return;
 
@@ -249,7 +250,7 @@ export default function SubjectDetailPage() {
 
     setLessons((prev) =>
       prev.map((l) =>
-        l.id === lesson.id ? { ...l, status: "revised" as const, revision_count: (l.revision_count ?? 0) + 1 } : l,
+        l.id === lesson.id ? { ...l, status: "revised" as const, revision_count: newCount } : l,
       ),
     );
   }

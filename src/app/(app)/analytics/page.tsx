@@ -10,6 +10,7 @@ import {
   TrendingUp,
   BarChart3,
   BookOpen,
+  RefreshCw,
 } from "lucide-react";
 import {
   BarChart,
@@ -76,6 +77,8 @@ export default function AnalyticsPage() {
   const [userLevel, setUserLevel] = useState(1);
   const [userId, setUserId] = useState("");
   const [loading, setLoading] = useState(true);
+  const [revisionData, setRevisionData] = useState<{ subjectName: string; subjectColor: string; totalRevisions: number; lessons: { name: string; revisionCount: number; status: string }[] }[]>([]);
+  const [totalRevisions, setTotalRevisions] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,6 +129,53 @@ export default function AnalyticsPage() {
 
       if (cancelled) return;
       setSubjects(allSubjects ?? []);
+
+      // Fetch all lessons with revision counts
+      const { data: allLessons } = await supabase
+        .from("lessons")
+        .select("subject_id, name, revision_count, status")
+        .eq("user_id", user.id);
+
+      if (cancelled) return;
+
+      // Aggregate revision data by subject
+      const revisionMap: Record<string, { subjectName: string; subjectColor: string; totalRevisions: number; lessons: { name: string; revisionCount: number; status: string }[] }> = {};
+      let totalRev = 0;
+
+      (allLessons ?? []).forEach((lesson) => {
+        const sub = allSubjects?.find((s) => s.id === lesson.subject_id);
+        const revCount = lesson.revision_count ?? 0;
+        totalRev += revCount;
+
+        if (!revisionMap[lesson.subject_id]) {
+          revisionMap[lesson.subject_id] = {
+            subjectName: sub?.name ?? "Unknown",
+            subjectColor: sub?.color ?? "#7c6cf7",
+            totalRevisions: 0,
+            lessons: [],
+          };
+        }
+        revisionMap[lesson.subject_id].totalRevisions += revCount;
+        if (revCount > 0) {
+          revisionMap[lesson.subject_id].lessons.push({
+            name: lesson.name,
+            revisionCount: revCount,
+            status: lesson.status,
+          });
+        }
+      });
+
+      // Sort by revision count descending
+      const revisionArr = Object.values(revisionMap)
+        .sort((a, b) => b.totalRevisions - a.totalRevisions)
+        .map((r) => ({
+          ...r,
+          lessons: r.lessons.sort((a, b) => b.revisionCount - a.revisionCount),
+        }));
+
+      setRevisionData(revisionArr);
+      setTotalRevisions(totalRev);
+
       setLoading(false);
     }
     fetchData();
@@ -583,6 +633,99 @@ export default function AnalyticsPage() {
                   />
                 ))}
               </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Revision Tracking Dashboard */}
+      <Card className="animate-fade-in" style={{ animationDelay: "480ms" }}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RefreshCw size={16} />
+            Revision Tracking
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Total Revisions Summary */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-xl bg-muted p-4">
+              <p className="text-xs text-muted-foreground">Total Revisions</p>
+              <p className="mt-1 text-2xl font-bold">{totalRevisions}</p>
+              <p className="text-[11px] text-muted-foreground">across all subjects</p>
+            </div>
+            <div className="rounded-xl bg-muted p-4">
+              <p className="text-xs text-muted-foreground">Subjects Revised</p>
+              <p className="mt-1 text-2xl font-bold">
+                {revisionData.filter((r) => r.totalRevisions > 0).length}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                out of {revisionData.length} total
+              </p>
+            </div>
+            <div className="rounded-xl bg-muted p-4">
+              <p className="text-xs text-muted-foreground">Avg per Subject</p>
+              <p className="mt-1 text-2xl font-bold">
+                {revisionData.length > 0
+                  ? Math.round(totalRevisions / revisionData.length)
+                  : 0}
+              </p>
+              <p className="text-[11px] text-muted-foreground">revisions</p>
+            </div>
+          </div>
+
+          {/* Per-Subject Revision Breakdown */}
+          {revisionData.length > 0 && (
+            <div>
+              <h4 className="mb-3 text-sm font-medium">Revisions by Subject</h4>
+              <div className="space-y-3">
+                {revisionData.map((r) => (
+                  <div key={r.subjectName} className="rounded-xl bg-muted p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="h-3 w-3 rounded-full"
+                          style={{ backgroundColor: r.subjectColor }}
+                        />
+                        <span className="text-sm font-medium">{r.subjectName}</span>
+                      </div>
+                      <span className="text-lg font-bold">{r.totalRevisions}</span>
+                    </div>
+                    {r.lessons.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        {r.lessons.map((lesson) => (
+                          <div
+                            key={lesson.name}
+                            className="flex items-center justify-between rounded-lg bg-background px-3 py-2 text-sm"
+                          >
+                            <div className="flex items-center gap-2">
+                              <RefreshCw size={12} className="text-muted-foreground" />
+                              <span className="truncate text-muted-foreground">
+                                {lesson.name}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">×{lesson.revisionCount}</span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {lesson.status === "revised" ? "revised" : "done"}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {totalRevisions === 0 && (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <RefreshCw size={32} className="mb-3 text-muted-foreground/50" />
+              <p className="text-sm text-muted-foreground">
+                No revisions yet. Mark lessons as revised to track them here.
+              </p>
             </div>
           )}
         </CardContent>

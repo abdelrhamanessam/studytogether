@@ -216,9 +216,10 @@ export default function RoomPage({
   }, []);
 
   const reviseLesson = useCallback(async (lesson: Lesson) => {
+    const newCount = (lesson.revision_count ?? 0) + 1;
     const { error } = await supabaseRef.current
       .from("lessons")
-      .update({ status: "revised", completed_at: new Date().toISOString() })
+      .update({ status: "revised", completed_at: new Date().toISOString(), revision_count: newCount })
       .eq("id", lesson.id);
     if (error) {
       console.error("Revise lesson error:", error);
@@ -235,7 +236,7 @@ export default function RoomPage({
 
     setLessons((prev) =>
       prev.map((l) =>
-        l.id === lesson.id ? { ...l, status: "revised" as const, revision_count: (l.revision_count ?? 0) + 1 } : l,
+        l.id === lesson.id ? { ...l, status: "revised" as const, revision_count: newCount } : l,
       ),
     );
   }, [currentUserId]);
@@ -588,7 +589,7 @@ export default function RoomPage({
           .eq("id", activeSession.id);
 
         const plannedMinutes = studyMethod === "target"
-          ? room.target_duration ?? undefined
+          ? (room.target_duration ? Math.floor(room.target_duration / 60) : undefined)
           : room.study_duration
             ? room.study_duration / 60
             : undefined;
@@ -612,7 +613,7 @@ export default function RoomPage({
           }
         }
 
-        // Calculate today's total study time (including this session)
+        // Calculate today's total study time (this session is already marked completed above)
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
         const { data: todaySessions } = await supabase
@@ -621,7 +622,7 @@ export default function RoomPage({
           .eq("user_id", currentUserId)
           .gte("started_at", todayStart.toISOString())
           .eq("status", "completed");
-        const todayTotal = (todaySessions?.reduce((s, ss) => s + (ss.actual_duration ?? 0), 0) ?? 0) + actualDuration;
+        const todayTotal = todaySessions?.reduce((s, ss) => s + (ss.actual_duration ?? 0), 0) ?? 0;
 
         // Apply daily goal result
         let goalMultiplier = 1;
