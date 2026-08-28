@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/layout/app-shell";
 import { ThemeProvider } from "@/components/theme-provider";
 import { BackgroundRenderer } from "@/components/background-renderer";
+import { QuranProvider } from "@/components/quran/quran-provider";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -41,7 +42,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <ThemeProvider backgroundCssClass={bgCssClass}>
       <BackgroundRenderer cssClass={bgCssClass} />
-      <AppShell user={sidebarUser}>{children}</AppShell>
+      <QuranProvider userId={user.id}>
+        <AppShell user={sidebarUser}>{children}</AppShell>
+      </QuranProvider>
     </ThemeProvider>
   );
 }

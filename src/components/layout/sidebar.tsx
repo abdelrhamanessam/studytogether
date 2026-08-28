@@ -16,6 +16,7 @@ import {
   Zap,
   CircleDollarSign,
   ShoppingCart,
+  BookOpenText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -29,6 +30,7 @@ const navItems = [
   { href: "/subjects", label: "Subjects", icon: BookOpen },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
+  { href: "/quran", label: "القرآن الكريم", icon: BookOpenText },
   { href: "/shop", label: "Shop", icon: ShoppingCart },
   { href: "/profile", label: "Profile", icon: User },
 ] as const;
