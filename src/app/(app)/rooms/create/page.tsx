@@ -249,10 +249,12 @@ export default function CreateRoomPage() {
             <div className="flex items-center justify-between">
               <div className="flex flex-col gap-0.5">
                 <span className="text-sm font-medium text-foreground">
-                  Public Room
+                  {isPublic ? "Public Room" : "Private Room"}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  Visible in the room discovery page
+                  {isPublic
+                    ? "Visible in the room discovery page — anyone can join"
+                    : "Hidden from discovery — only people with the invite code can join"}
                 </span>
               </div>
               <button

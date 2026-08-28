@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Search,
   Plus,
@@ -11,6 +12,7 @@ import {
   Filter,
   Loader2,
   DoorOpen,
+  KeyRound,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -46,11 +48,24 @@ const METHOD_BADGE: Record<StudyMethod, string> = {
 };
 
 export default function RoomsPage() {
+  const router = useRouter();
   const [rooms, setRooms] = useState<RoomWithMembers[]>([]);
   const [filtered, setFiltered] = useState<RoomWithMembers[]>([]);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [loading, setLoading] = useState(true);
+  const [joinCode, setJoinCode] = useState("");
+  const [joinError, setJoinError] = useState("");
+
+  const handleJoinByCode = () => {
+    const code = joinCode.trim().toUpperCase();
+    if (!code) {
+      setJoinError("Enter a room code to join.");
+      return;
+    }
+    setJoinError("");
+    router.push(`/room/${code}`);
+  };
 
   const fetchRooms = useCallback(async () => {
     setLoading(true);
@@ -122,6 +137,44 @@ export default function RoomsPage() {
             Create Room
           </Button>
         </Link>
+      </div>
+
+      <Card className="animate-fade-in border-border bg-card/60">
+        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-foreground">
+              <KeyRound size={15} className="text-primary" />
+              Join a private room with a code
+            </label>
+            <Input
+              placeholder="e.g. ABC123"
+              value={joinCode}
+              onChange={(e) => {
+                setJoinCode(e.target.value.toUpperCase());
+                if (joinError) setJoinError("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleJoinByCode();
+              }}
+              maxLength={12}
+            />
+            {joinError && (
+              <p className="mt-1.5 text-xs text-red-500">{joinError}</p>
+            )}
+          </div>
+          <Button onClick={handleJoinByCode} className="gap-2 shrink-0">
+            <DoorOpen className="h-4 w-4" />
+            Join Room
+          </Button>
+        </CardContent>
+      </Card>
+
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Public rooms
+        </span>
+        <div className="h-px flex-1 bg-border" />
       </div>
 
       <div className="relative">

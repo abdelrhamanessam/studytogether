@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   XCircle,
   LogOut,
+  EyeOff,
+  Globe,
 } from "lucide-react";
 import {
   BarChart,
@@ -59,6 +61,7 @@ export default function ProfilePage() {
   >([]);
   const [loading, setLoading] = useState(true);
   const [goalSaving, setGoalSaving] = useState(false);
+  const [privacySaving, setPrivacySaving] = useState(false);
   const [goalValue, setGoalValue] = useState<number>(0);
 
   const handleLogout = useCallback(async () => {
@@ -158,6 +161,17 @@ export default function ProfilePage() {
     await supabase.rpc("set_daily_goal", { p_user_id: profile!.id, p_seconds: seconds });
     setProfile((p) => p ? { ...p, daily_goal_seconds: seconds, daily_goal_state: null } : p);
     setGoalSaving(false);
+  }
+
+  async function togglePrivacy(value: boolean) {
+    if (!profile) return;
+    setPrivacySaving(true);
+    await supabase
+      .from("profiles")
+      .update({ is_private: value })
+      .eq("id", profile.id);
+    setProfile((p) => (p ? { ...p, is_private: value } : p));
+    setPrivacySaving(false);
   }
 
   const xp = profile
@@ -391,6 +405,47 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="animate-fade-in" style={{ animationDelay: "280ms" }}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <EyeOff size={16} />
+            Profile Privacy
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">
+            Private profiles are hidden from the public leaderboard and other
+            people can't see your study hours. Only you see your own rank.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            {[false, true].map((priv) => {
+              const active = profile?.is_private === priv;
+              return (
+                <button
+                  key={String(priv)}
+                  onClick={() => togglePrivacy(priv)}
+                  disabled={privacySaving}
+                  className={cn(
+                    "flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all border cursor-pointer disabled:opacity-50",
+                    active
+                      ? "border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/25"
+                      : "border-border bg-muted/50 text-muted-foreground hover:border-primary/30 hover:text-foreground",
+                  )}
+                >
+                  {priv ? <EyeOff size={15} /> : <Globe size={15} />}
+                  {priv ? "Private" : "Public"}
+                </button>
+              );
+            })}
+          </div>
+          {profile?.is_private && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Your profile is currently private.
+            </p>
           )}
         </CardContent>
       </Card>

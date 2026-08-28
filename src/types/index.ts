@@ -17,6 +17,7 @@ export interface Profile {
   equipped_name_effect: { effect: string } | null;
   daily_goal_seconds: number;
   daily_goal_state: { type: string; multiplier: number; expires_at: string; boosted_today?: boolean } | null;
+  is_private: boolean;
   created_at: string;
   updated_at: string;
 }

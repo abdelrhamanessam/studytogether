@@ -29,6 +29,7 @@ export default function LeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [viewerPrivate, setViewerPrivate] = useState(false);
   const cancelledRef = useRef(false);
 
   const fetchLeaderboard = useCallback(async () => {
@@ -55,6 +56,7 @@ export default function LeaderboardPage() {
 
     const { data: rows } = await supabase.rpc("get_leaderboard", {
       p_start_date: startDate,
+      p_user_id: user.id,
     });
 
     if (!rows || cancelledRef.current) {
@@ -74,6 +76,7 @@ export default function LeaderboardPage() {
         current_streak: r.current_streak,
         equipped_badge: r.equipped_badge,
         equipped_title: r.equipped_title,
+        is_private: Boolean(r.is_private),
       } as Profile,
       period_xp: Number(r.period_xp ?? 0),
       period_seconds: Number(r.period_seconds ?? 0),
@@ -81,6 +84,10 @@ export default function LeaderboardPage() {
     }));
 
     setEntries(entries);
+
+    const myRow = entries.find((e) => e.profile.id === user.id);
+    setViewerPrivate(myRow?.profile.is_private ?? false);
+
     setLoading(false);
   }, [tab, supabase]);
 
@@ -156,6 +163,12 @@ export default function LeaderboardPage() {
       </div>
 
       <div className="animate-fade-in space-y-1" style={{ animationDelay: "120ms" }}>
+        {viewerPrivate && (
+          <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
+            You are in <span className="font-medium text-foreground">private mode</span> — your profile
+            is hidden from the public leaderboard. Only you can see your own rank here.
+          </div>
+        )}
         {entries.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card py-16 text-center">
             <Trophy className="mb-3 h-10 w-10 text-muted-foreground/40" />
@@ -164,12 +177,19 @@ export default function LeaderboardPage() {
             </p>
           </div>
         ) : (
-          entries.slice(0, 50).map((entry, i) => {
-            const medal = getMedal(i);
-            const isCurrentUser = entry.profile.id === currentUserId;
-            const rank = i + 1;
+          (() => {
+            const privateRank =
+              entries.findIndex((e) => e.profile.id === currentUserId) + 1;
+            const shown = viewerPrivate
+              ? entries.filter((e) => e.profile.id === currentUserId)
+              : entries.slice(0, 50);
 
-            return (
+            return shown.map((entry, i) => {
+              const realRank = viewerPrivate ? privateRank : i + 1;
+              const medal = getMedal(realRank - 1);
+              const isCurrentUser = entry.profile.id === currentUserId;
+
+              return (
               <Card
                 key={entry.profile.id}
                 className={cn(
@@ -185,7 +205,7 @@ export default function LeaderboardPage() {
                       <span className="text-xl">{medal.icon}</span>
                     ) : (
                       <span className="text-sm font-bold tabular-nums text-muted-foreground">
-                        {rank}
+                        {realRank}
                       </span>
                     )}
                   </div>
@@ -195,7 +215,7 @@ export default function LeaderboardPage() {
                     alt={entry.profile.display_name}
                     fallback={entry.profile.display_name}
                     size="md"
-                    showLevelRing={rank <= 3}
+                    showLevelRing={realRank <= 3}
                     level={entry.profile.level}
                   />
 
@@ -265,11 +285,12 @@ export default function LeaderboardPage() {
                 </CardContent>
               </Card>
             );
-          })
+            });
+          })()
         )}
       </div>
 
-      {entries.length > 0 && (() => {
+      {!viewerPrivate && entries.length > 0 && (() => {
         const userRank = entries.findIndex(
           (e) => e.profile.id === currentUserId,
         );

@@ -27,6 +27,8 @@ import {
   Square,
   Bell,
   Repeat,
+  Copy,
+  Lock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatTimer } from "@/lib/utils";
@@ -82,6 +84,7 @@ export default function RoomPage({
   const [isMember, setIsMember] = useState(false);
   const [activities, setActivities] = useState<ActivityEvent[]>([]);
   const [code, setCode] = useState("");
+  const [copied, setCopied] = useState(false);
   const supabaseRef = useRef(createClient());
   const hasResumedRef = useRef(false);
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -815,9 +818,30 @@ export default function RoomPage({
                   <span className="truncate">{room.subjects.name}</span>
                 </span>
               )}
-              <Badge variant="muted" size="sm">
-                {room.code}
-              </Badge>
+              {room.is_public === false && (
+                <Badge variant="secondary" size="sm" className="gap-1">
+                  <Lock className="h-3 w-3" />
+                  Private
+                </Badge>
+              )}
+              <button
+                type="button"
+                onClick={async () => {
+                  const link = `${window.location.origin}/room/${room.code}`;
+                  try {
+                    await navigator.clipboard.writeText(link);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1500);
+                  } catch {
+                    // ignore clipboard failures
+                  }
+                }}
+                className="inline-flex items-center rounded-lg border border-border bg-muted/50 px-2.5 py-1 text-xs font-mono font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-muted"
+                title="Copy invite link"
+              >
+                <Copy className="h-3 w-3 mr-1.5 text-primary" />
+                {copied ? "Copied!" : room.code}
+              </button>
             </div>
           </div>
         </div>
