@@ -72,7 +72,7 @@ function getToday(): string {
 }
 
 function getDiscountedPrice(price: number, discount: number): number {
-  return Math.max(1, Math.round(price * (1 - discount / 100)));
+  return Math.max(0, Math.round(price * (1 - discount / 100)));
 }
 
 function RarityBadge({ rarity }: { rarity: ShopItem["rarity"] }) {
@@ -370,14 +370,20 @@ export default function ShopPage() {
 
   async function handleBuy(itemId: string) {
     setPurchasingId(itemId);
-    const { error } = await supabase.rpc("buy_shop_item", {
+    const { data, error } = await supabase.rpc("buy_shop_item", {
       p_user_id: userId,
       p_item_id: itemId,
     });
     setPurchasingId(null);
 
-    if (error) {
-      showToast(error.message || "Purchase failed", true);
+    if (error || !data) {
+      showToast(error?.message || "Purchase failed", true);
+      return;
+    }
+
+    const result = data as { success?: boolean; error?: string; item_name?: string; price?: number };
+    if (!result.success || result.error) {
+      showToast(result.error || "Purchase failed", true);
       return;
     }
 
