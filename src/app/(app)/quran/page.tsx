@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   QURAN_RECITERS,
+  QURAN_QUALITIES,
   SURAHS,
   surahShortName,
   globalAyahToSurahAyah,
+  reciterSupportsLowQuality,
 } from "@/lib/quran";
 import { useQuran } from "@/components/quran/quran-provider";
 import { cn } from "@/lib/utils";
@@ -16,6 +18,8 @@ export default function QuranPage() {
   const {
     reciterId,
     setReciter,
+    quality,
+    setQuality,
     current,
     isPlaying,
     isLoading,
@@ -69,6 +73,45 @@ export default function QuranPage() {
                 )}
               >
                 {r.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Quality selector */}
+      <div className="animate-fade-in">
+        <h2 className="mb-2 text-sm font-medium text-muted-foreground">جودة الصوت</h2>
+        <div className="flex flex-wrap gap-2">
+          {QURAN_QUALITIES.map((q) => {
+            const lowUnavailable = q.id === "low" && !reciterSupportsLowQuality(reciterId);
+            const active = quality === q.id;
+            return (
+              <button
+                key={q.id}
+                onClick={() => setQuality(q.id)}
+                className={cn(
+                  "rounded-xl border px-4 py-2 text-left text-sm font-medium transition-colors cursor-pointer",
+                  active
+                    ? "border-primary bg-primary text-white"
+                    : "border-border bg-card text-muted-foreground hover:text-foreground",
+                  lowUnavailable && !active
+                    ? "opacity-50"
+                    : "",
+                )}
+              >
+                <span className="block">
+                  {q.label}
+                  {lowUnavailable && " — 128kbps فقط"}
+                </span>
+                <span
+                  className={cn(
+                    "block text-[11px]",
+                    active ? "text-white/80" : "text-muted-foreground",
+                  )}
+                >
+                  {lowUnavailable ? "المنشاوي متاح بالجودة العالية بس" : q.hint}
+                </span>
               </button>
             );
           })}

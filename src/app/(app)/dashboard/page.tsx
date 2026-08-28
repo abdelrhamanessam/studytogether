@@ -26,6 +26,7 @@ import { formatDuration } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Badge } from "@/components/ui/badge";
+import DailyMissionCard from "@/components/missions/daily-mission-card";
 import type { Profile, Subject, StudySession, RoomMember, Achievement, UserAchievement } from "@/types";
 
 interface SubjectProgress extends Subject {
@@ -323,6 +324,11 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Today's Missions */}
+      <div className="animate-fade-in" style={{ animationDelay: "0.23s" }}>
+        <DailyMissionCard />
       </div>
 
       {/* Daily Goal Progress */}

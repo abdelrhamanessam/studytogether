@@ -29,6 +29,19 @@ export interface Subject {
   total_lessons: number;
   total_xp: number;
   duration_type: "quick" | "semester" | "year";
+  mission_size: "small" | "medium" | "large";
+  created_at: string;
+}
+
+export interface DailyMission {
+  id: string;
+  user_id: string;
+  date: string;
+  title: string;
+  size: "small" | "medium" | "large";
+  xp_reward: number;
+  completed: boolean;
+  completed_at: string | null;
   created_at: string;
 }
 

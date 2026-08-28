@@ -2,6 +2,39 @@ import { SURAHS, TOTAL_AYAHS, type Surah } from "./quran-surahs";
 
 export { SURAHS, TOTAL_AYAHS, type Surah };
 
+export type QuranQuality = "high" | "low";
+
+export interface QuranQualityOption {
+  id: QuranQuality;
+  bitrate: number;
+  label: string;
+  hint: string;
+}
+
+export const QURAN_QUALITIES: QuranQualityOption[] = [
+  { id: "high", bitrate: 128, label: "جودة عالية", hint: "أفضل صوت (~58MB/ساعة)" },
+  { id: "low", bitrate: 64, label: "جودة منخفضة", hint: "أقل استهلاك للنِت (~29MB/ساعة)" },
+];
+
+export const DEFAULT_QUALITY: QuranQuality = "high";
+
+// Reciters that currently only have the 128kbps files on the CDN.
+// Low-quality (64kbps) is not available for them, so request falls back to 128.
+const LOW_QUALITY_UNAVAILABLE: Record<string, boolean> = {
+  "ar.minshawi": true,
+};
+
+export function reciterSupportsLowQuality(reciterId: string) {
+  return !LOW_QUALITY_UNAVAILABLE[reciterId];
+}
+
+export function effectiveBitrate(reciterId: string, quality: QuranQuality) {
+  if (quality === "low" && !reciterSupportsLowQuality(reciterId)) {
+    return 128;
+  }
+  return quality === "low" ? 64 : 128;
+}
+
 export interface QuranReciter {
   id: string;
   name: string;
@@ -41,8 +74,9 @@ export function globalAyahToSurahAyah(globalAyah: number) {
   return { surah, ayah: globalAyah - surah.start + 1 };
 }
 
-export function ayahAudioUrl(reciterId: string, globalAyah: number) {
-  return `https://cdn.islamic.network/quran/audio/128/${reciterId}/${globalAyah}.mp3`;
+export function ayahAudioUrl(reciterId: string, globalAyah: number, quality: QuranQuality = "high") {
+  const bitrate = effectiveBitrate(reciterId, quality);
+  return `https://cdn.islamic.network/quran/audio/${bitrate}/${reciterId}/${globalAyah}.mp3`;
 }
 
 // Strip diacritics for more readable short names in tight UIs

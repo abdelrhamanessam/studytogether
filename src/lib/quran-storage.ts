@@ -2,10 +2,32 @@ export interface QuranProgress {
   userId: string;
   reciterId: string;
   globalAyah: number; // last played global ayah (0 = none yet)
+  quality?: "high" | "low";
   updatedAt: number;
 }
 
 const KEY = "studytogether:quran-progress";
+const QUALITY_KEY = "studytogether:quran-quality";
+
+export function loadQuranQuality(): "high" | "low" | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(QUALITY_KEY);
+    if (raw === "high" || raw === "low") return raw;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveQuranQuality(q: "high" | "low") {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(QUALITY_KEY, q);
+  } catch {
+    // ignore
+  }
+}
 
 export function loadQuranProgress(userId?: string): QuranProgress | null {
   if (typeof window === "undefined" || !userId) return null;

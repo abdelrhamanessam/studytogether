@@ -4,6 +4,38 @@ export const XP_POOLS: Record<string, number> = {
   year: 36000,
 };
 
+// Mission sizes a user can pick when creating a subject (or a daily mission).
+// Each size maps to an XP pool that determines how much a completed mission is
+// worth. "small" ~ a few days / one week, "medium" ~ a month, "large" ~ a big
+// multi-week mission.
+export const MISSION_SIZES = ["small", "medium", "large"] as const;
+export type MissionSize = (typeof MISSION_SIZES)[number];
+
+export const MISSION_POOLS: Record<MissionSize, number> = {
+  small: 3000,
+  medium: 15000,
+  large: 36000,
+};
+
+export const MISSION_LABELS: Record<MissionSize, string> = {
+  small: "Small",
+  medium: "Medium",
+  large: "Large",
+};
+
+export const MISSION_HINTS: Record<MissionSize, string> = {
+  small: "A few days / one week",
+  medium: "About a month",
+  large: "A big multi-week mission",
+};
+
+// XP awarded for completing a single daily mission by size.
+export const DAILY_MISSION_XP: Record<MissionSize, number> = {
+  small: 50,
+  medium: 120,
+  large: 250,
+};
+
 export const STREAK_MULTIPLIERS = [
   { minDays: 31, multiplier: 1.75 },
   { minDays: 15, multiplier: 1.50 },
@@ -36,16 +68,17 @@ export function calculateLessonXp(totalXp: number, totalLessons: number, isRevis
 }
 
 const LEVEL_THRESHOLDS = [
-  0, 100, 220, 360, 520, 700, 900, 1120, 1360, 1620, 1900,
-  2200, 2520, 2860, 3220, 3600, 4000, 4420, 4860, 5320, 5800,
-  6300, 6820, 7360, 7920, 8500, 9100, 9720, 10360, 11020, 11700,
-  12400, 13120, 13860, 14620, 15400, 16200, 17020, 17860, 18720, 19600,
-  20500, 21420, 22360, 23320, 24300, 25300, 26320, 27360, 28420, 29500,
-  30600, 31720, 32860, 34020, 35200, 36400, 37620, 38860, 40120, 41400,
-  42700, 44020, 45360, 46720, 48100, 49500, 50920, 52360, 53820, 55300,
-  56800, 58320, 59860, 61420, 63000, 64600, 66220, 67860, 69520, 71200,
-  72900, 74620, 76360, 78120, 79900, 81700, 83520, 85360, 87220, 89100,
-  91000, 92920, 94860, 96820, 98800, 100800, 102820, 104860, 106920, 109000,
+  0, 1000, 2150, 3450, 4900, 6500, 8250, 10150, 12200, 14400, 16750,
+  19250, 21900, 24700, 27650, 30750, 34000, 37400, 40950, 44650, 48500,
+  52500, 56500, 60500, 64500, 68500, 72500, 76500, 80500, 84500, 88500,
+  92500, 96500, 100500, 104500, 108500, 112500, 116500, 120500, 124500,
+  128500, 132500, 136500, 140500, 144500, 148500, 152500, 156500, 160500,
+  164500, 168500, 172500, 176500, 180500, 184500, 188500, 192500, 196500,
+  200500, 204500, 208500, 212500, 216500, 220500, 224500, 228500, 232500,
+  236500, 240500, 244500, 248500, 252500, 256500, 260500, 264500, 268500,
+  272500, 276500, 280500, 284500, 288500, 292500, 296500, 300500, 304500,
+  308500, 312500, 316500, 320500, 324500, 328500, 332500, 336500, 340500,
+  344500, 348500, 352500, 356500, 360500, 364500,
 ];
 
 export function calculateLevel(totalXp: number): number {
@@ -57,7 +90,7 @@ export function calculateLevel(totalXp: number): number {
   if (totalXp >= LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1]) {
     const baseLevel = LEVEL_THRESHOLDS.length;
     const remaining = totalXp - LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
-    return baseLevel + Math.floor(remaining / 2200);
+    return baseLevel + Math.floor(remaining / 4000);
   }
   return 1;
 }
@@ -67,7 +100,7 @@ export function xpForLevel(level: number): number {
   const idx = level - 1;
   if (idx < LEVEL_THRESHOLDS.length) return LEVEL_THRESHOLDS[idx];
   const baseLevel = LEVEL_THRESHOLDS.length;
-  return LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1] + (level - baseLevel) * 2200;
+  return LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1] + (level - baseLevel) * 4000;
 }
 
 export function xpForNextLevel(level: number): number {
@@ -122,6 +155,8 @@ export function calculateSessionXp(actualMinutes: number, plannedMinutes?: numbe
       completionBonus = Math.floor(plannedMinutes * ratio * 3);
     }
   } else {
+    // Unstructured/count-up sessions (stopwatch) get the same XP as a
+    // perfectly-completed structured session, so the user is rewarded equally.
     completionBonus = Math.min(actualMinutes * 5, 800);
   }
 
@@ -160,6 +195,11 @@ export function estimateLiveXp(elapsedSeconds: number, studyDuration?: number): 
     } else if (ratio >= 0.5) {
       completionBonus = plannedMin * ratio * 3;
     }
+  } else {
+    // Count-up sessions (stopwatch) with no planned duration get the same
+    // completion bonus as calculateSessionXp, so the live value matches
+    // exactly what will be awarded on finish.
+    completionBonus = Math.min(minutes * 5, 800);
   }
 
   return Math.floor(base + timeBonus + completionBonus);

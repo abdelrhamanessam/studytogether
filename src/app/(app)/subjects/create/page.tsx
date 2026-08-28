@@ -5,13 +5,18 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowLeft, Palette, Check, Zap, Clock, BookOpen } from "lucide-react";
+import { ArrowLeft, Palette, Check, Flag, Rocket, Flame } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { XP_POOLS } from "@/lib/xp";
+import {
+  MISSION_POOLS,
+  MISSION_HINTS,
+  MISSION_SIZES,
+  type MissionSize,
+} from "@/lib/xp";
 
 const PRESET_COLORS = [
   "#6c5ce7", "#00cec9", "#fd79a8", "#00b894", "#fdcb6e",
@@ -19,16 +24,22 @@ const PRESET_COLORS = [
   "#fab1a0", "#a29bfe", "#ff7675", "#74b9ff", "#ffeaa7", "#dfe6e9",
 ];
 
-const DURATION_OPTIONS = [
-  { value: "quick", label: "Quick", description: "A few weeks", icon: Clock, weeks: "~2-4 weeks" },
-  { value: "semester", label: "Semester", description: "One semester", icon: BookOpen, weeks: "~4 months" },
-  { value: "year", label: "Full Year", description: "Full academic year", icon: Zap, weeks: "~9-12 months" },
-] as const;
+const MISSION_OPTIONS: {
+  size: MissionSize;
+  label: string;
+  icon: typeof Flag;
+  hint: string;
+}[] = [
+  { size: "small", label: "Small mission", icon: Flag, hint: MISSION_HINTS.small },
+  { size: "medium", label: "Medium mission", icon: Rocket, hint: MISSION_HINTS.medium },
+  { size: "large", label: "Large mission", icon: Flame, hint: MISSION_HINTS.large },
+];
 
 const schema = z.object({
   name: z.string().min(1, "Subject name is required").max(100, "Name too long"),
   color: z.string().min(1, "Pick a color"),
   lesson_count: z.number().min(1, "At least 1 lesson").max(500, "Max 500 lessons"),
+  mission_size: z.enum(MISSION_SIZES),
   duration_type: z.enum(["quick", "semester", "year"]),
 });
 
@@ -51,15 +62,22 @@ export default function CreateSubjectPage() {
       name: "",
       color: PRESET_COLORS[0],
       lesson_count: 10,
+      mission_size: "medium",
       duration_type: "semester",
     },
   });
 
   const selectedColor = watch("color");
-  const selectedDuration = watch("duration_type");
+  const selectedMission = watch("mission_size") as MissionSize;
   const lessonCount = watch("lesson_count");
-  const totalXp = XP_POOLS[selectedDuration] ?? 5000;
+  const totalXp = MISSION_POOLS[selectedMission] ?? 15000;
   const xpPerLesson = Math.round(totalXp / Math.max(lessonCount, 1));
+
+  const DURATION_BY_MISSION: Record<MissionSize, "quick" | "semester" | "year"> = {
+    small: "quick",
+    medium: "semester",
+    large: "year",
+  };
 
   async function onSubmit(data: FormData) {
     setSubmitting(true);
@@ -75,8 +93,9 @@ export default function CreateSubjectPage() {
         name: data.name,
         color: data.color,
         total_lessons: data.lesson_count,
-        total_xp: XP_POOLS[data.duration_type],
+        total_xp: MISSION_POOLS[data.mission_size],
         duration_type: data.duration_type,
+        mission_size: data.mission_size,
       })
       .select()
       .single();
@@ -163,19 +182,22 @@ export default function CreateSubjectPage() {
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-foreground">
                 <span className="flex items-center gap-1.5">
-                  <Clock size={14} />
-                  Duration
+                  <Flag size={14} />
+                  Mission Size
                 </span>
               </label>
               <div className="grid gap-2 sm:grid-cols-3">
-                {DURATION_OPTIONS.map((opt) => (
+                {MISSION_OPTIONS.map((opt) => (
                   <button
-                    key={opt.value}
+                    key={opt.size}
                     type="button"
-                    onClick={() => setValue("duration_type", opt.value, { shouldValidate: true })}
+                    onClick={() => {
+                      setValue("mission_size", opt.size, { shouldValidate: true });
+                      setValue("duration_type", DURATION_BY_MISSION[opt.size], { shouldValidate: true });
+                    }}
                     className={cn(
                       "flex flex-col items-center gap-1 rounded-xl border p-3 text-left transition-all cursor-pointer",
-                      selectedDuration === opt.value
+                      selectedMission === opt.size
                         ? "border-primary bg-primary/10 ring-1 ring-primary"
                         : "border-border hover:border-border/80 hover:bg-muted/50",
                     )}
@@ -183,14 +205,15 @@ export default function CreateSubjectPage() {
                     <opt.icon
                       className={cn(
                         "h-5 w-5",
-                        selectedDuration === opt.value ? "text-primary" : "text-muted-foreground",
+                        selectedMission === opt.size ? "text-primary" : "text-muted-foreground",
                       )}
                     />
                     <span className="text-sm font-medium">{opt.label}</span>
-                    <span className="text-xs text-muted-foreground">{opt.weeks}</span>
+                    <span className="text-xs text-muted-foreground">{opt.hint}</span>
                   </button>
                 ))}
               </div>
+              <input type="hidden" {...register("mission_size")} />
               <input type="hidden" {...register("duration_type")} />
             </div>
 

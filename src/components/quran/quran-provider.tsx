@@ -13,17 +13,21 @@ import { usePathname } from "next/navigation";
 import {
   QURAN_RECITERS,
   DEFAULT_RECITER,
+  DEFAULT_QUALITY,
   getSurah,
   surahFirstGlobalAyah,
   surahAyahToGlobal,
   globalAyahToSurahAyah,
   ayahAudioUrl,
   type QuranReciter,
+  type QuranQuality,
 } from "@/lib/quran";
 import {
   loadQuranProgress,
   saveQuranProgress,
   clearQuranProgress,
+  loadQuranQuality,
+  saveQuranQuality,
 } from "@/lib/quran-storage";
 import { FloatingQuranPlayer } from "./floating-quran-player";
 
@@ -32,10 +36,12 @@ export interface QuranTrack {
   globalAyah: number;
   surah: number;
   ayah: number;
+  quality: QuranQuality;
 }
 
 interface QuranContextValue {
   reciterId: string;
+  quality: QuranQuality;
   reciters: QuranReciter[];
   current: QuranTrack | null;
   isPlaying: boolean;
@@ -43,6 +49,7 @@ interface QuranContextValue {
   isFloatingOpen: boolean;
   isDocked: boolean;
   setReciter: (id: string) => void;
+  setQuality: (q: QuranQuality) => void;
   playSurah: (surah: number, ayah?: number) => void;
   playGlobal: (globalAyah: number) => void;
   toggle: () => void;
@@ -68,7 +75,20 @@ export function QuranProvider({ children, userId }: { children: ReactNode; userI
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Retry/failover state for a failing ayah.
+  // Holds the globalAyah currently being loaded, how many retries remain,
+  // and whether we've decided to skip ahead.
+  const loadRef = useRef<{
+    globalAyah: number | null;
+    retriesLeft: number;
+    timeout: ReturnType<typeof setTimeout> | null;
+  }>({ globalAyah: null, retriesLeft: 0, timeout: null });
+
+  const MAX_RETRIES = 2;
+  const LOAD_TIMEOUT_MS = 15000;
+
   const [reciterId, setReciterId] = useState<string>(DEFAULT_RECITER);
+  const [quality, setQualityState] = useState<QuranQuality>(DEFAULT_QUALITY);
   const [current, setCurrent] = useState<QuranTrack | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -90,12 +110,19 @@ export function QuranProvider({ children, userId }: { children: ReactNode; userI
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
+  // Load saved quality preference
+  useEffect(() => {
+    const q = loadQuranQuality();
+    if (q) setQualityState(q);
+  }, []);
+
   const ensureAudio = useCallback(() => {
     if (!audioRef.current) {
       const a = new Audio();
       a.preload = "auto";
       a.addEventListener("ended", () => {
         setIsPlaying(false);
+        clearLoadRef();
         // auto-advance only if still playing contextually
         setCurrent((c) => {
           if (!c) return c;
@@ -103,19 +130,82 @@ export function QuranProvider({ children, userId }: { children: ReactNode; userI
           return c;
         });
       });
-      a.addEventListener("play", () => setIsPlaying(true));
+      a.addEventListener("play", () => {
+        setIsPlaying(true);
+        clearLoadRef();
+      });
       a.addEventListener("pause", () => setIsPlaying(false));
       a.addEventListener("waiting", () => setIsLoading(true));
-      a.addEventListener("canplay", () => setIsLoading(false));
-      a.addEventListener("playing", () => setIsLoading(false));
+      a.addEventListener("canplay", () => {
+        setIsLoading(false);
+        clearLoadRef();
+      });
+      a.addEventListener("playing", () => {
+        setIsLoading(false);
+        clearLoadRef();
+      });
       a.addEventListener("error", () => {
         setIsLoading(false);
         setIsPlaying(false);
+        onLoadFailureRef.current?.();
       });
       audioRef.current = a;
     }
     return audioRef.current;
   }, []);
+
+  // Clear the pending load/retry state (called when an ayah loads or ends)
+  const clearLoadRef = useCallback(() => {
+    if (loadRef.current.timeout) {
+      clearTimeout(loadRef.current.timeout);
+      loadRef.current.timeout = null;
+    }
+    // keep globalAyah but reset retries so a fresh load always has budget
+    loadRef.current.retriesLeft = 0;
+  }, []);
+
+  // Called when an ayah fails (error event) or hangs (timeout). Retries up to
+  // MAX_RETRIES, otherwise skips ahead to the next ayah (failover).
+  const handleLoadFailure = useCallback(() => {
+    const state = loadRef.current;
+    if (state.globalAyah == null) return;
+
+    const g = state.globalAyah;
+    if (state.retriesLeft > 0) {
+      state.retriesLeft -= 1;
+      setIsLoading(true);
+      // retry the SAME ayah from scratch (re-set src to bust any cache issue)
+      const audio = ensureAudio();
+      audio.src = ayahAudioUrl(reciterId, g, quality);
+      audio.load();
+      audio.play().catch(() => {});
+      // schedule a fresh timeout for this retry
+      scheduleLoadTimeoutRef.current?.(g);
+      return;
+    }
+    // no retries left -> skip to the next ayah
+    const nextG = Math.min(g + 1, 6236);
+    playGlobalRef.current?.(nextG, false);
+  }, [ensureAudio, reciterId, quality]);
+
+  const onLoadFailureRef = useRef<(() => void) | null>(null);
+  onLoadFailureRef.current = handleLoadFailure;
+
+  // Schedules the hang timeout for a given ayah load attempt
+  const scheduleLoadTimeout = useCallback(
+    (g: number) => {
+      if (loadRef.current.timeout) clearTimeout(loadRef.current.timeout);
+      loadRef.current.timeout = setTimeout(() => {
+        // If we STILL don't have the ayah we asked for, it likely hung
+        if (loadRef.current.globalAyah === g) {
+          handleLoadFailure();
+        }
+      }, LOAD_TIMEOUT_MS);
+    },
+    [handleLoadFailure],
+  );
+  const scheduleLoadTimeoutRef = useRef<((g: number) => void) | null>(null);
+  scheduleLoadTimeoutRef.current = scheduleLoadTimeout;
 
   // Allow the ended handler to reach the latest autoAdvance
   const handleAutoAdvanceRef = useRef<((t: QuranTrack) => void) | null>(null);
@@ -127,6 +217,7 @@ export function QuranProvider({ children, userId }: { children: ReactNode; userI
         userId,
         reciterId: track.reciterId,
         globalAyah: track.globalAyah,
+        quality: track.quality,
       });
     },
     [userId],
@@ -141,18 +232,30 @@ export function QuranProvider({ children, userId }: { children: ReactNode; userI
         globalAyah,
         surah: surah.n,
         ayah,
+        quality,
       };
       setCurrent(track);
       persistProgress(track);
       setResumeProgress({ reciterId, globalAyah });
+
+      // Set up the retry/failover state for this ayah
+      const state = loadRef.current;
+      state.globalAyah = globalAyah;
+      state.retriesLeft = MAX_RETRIES;
+      if (state.timeout) clearTimeout(state.timeout);
+
       setIsLoading(true);
-      audio.src = ayahAudioUrl(reciterId, globalAyah);
-      audio.play().catch(() => setIsLoading(false));
+      audio.src = ayahAudioUrl(reciterId, globalAyah, quality);
+      scheduleLoadTimeout(globalAyah);
+      audio.play().catch(() => {
+        // play() rejected (e.g. autoplay blocked) -> surface as load failure
+        // but don't loop infinitely; treat as a one-time failover skip later
+      });
       if (auto !== false) {
         setFloatingOpen(true);
       }
     },
-    [reciterId, ensureAudio, persistProgress],
+    [reciterId, quality, ensureAudio, persistProgress, scheduleLoadTimeout],
   );
 
   // Configure the auto-advance behavior (called on end)
@@ -225,12 +328,29 @@ export function QuranProvider({ children, userId }: { children: ReactNode; userI
     [current, playGlobal],
   );
 
+  const setQuality = useCallback(
+    (q: QuranQuality) => {
+      setQualityState(q);
+      saveQuranQuality(q);
+      if (current) {
+        // reload current ayah with new quality
+        playGlobal(current.globalAyah, false);
+      }
+    },
+    [current, playGlobal],
+  );
+
   // Save progress when leaving / on unload
   useEffect(() => {
     if (!userId) return;
     const onUnload = () => {
       if (current) {
-        saveQuranProgress({ userId, reciterId: current.reciterId, globalAyah: current.globalAyah });
+        saveQuranProgress({
+          userId,
+          reciterId: current.reciterId,
+          globalAyah: current.globalAyah,
+          quality: current.quality,
+        });
       }
     };
     window.addEventListener("beforeunload", onUnload);
@@ -254,6 +374,7 @@ export function QuranProvider({ children, userId }: { children: ReactNode; userI
 
   const value: QuranContextValue = {
     reciterId,
+    quality,
     reciters: QURAN_RECITERS,
     current,
     isPlaying,
@@ -261,6 +382,7 @@ export function QuranProvider({ children, userId }: { children: ReactNode; userI
     isFloatingOpen,
     isDocked,
     setReciter,
+    setQuality,
     playSurah,
     playGlobal,
     toggle,

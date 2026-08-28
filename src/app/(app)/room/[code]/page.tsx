@@ -905,7 +905,11 @@ export default function RoomPage({
                     })();
                 const liveXp = estimateLiveXp(
                   Math.max(0, elapsedSeconds),
-                  !isCountUp ? (room.study_duration ?? undefined) : undefined,
+                  !isCountUp
+                    ? (room.study_duration ?? undefined)
+                    : studyMethod === "target"
+                      ? (room.target_duration ?? undefined)
+                      : undefined,
                 );
                 return (
                   <div className="flex items-center gap-4 text-xs">
