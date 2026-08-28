@@ -574,8 +574,15 @@ export default function RoomPage({
         .maybeSingle();
 
       if (activeSession) {
-        const started = new Date(activeSession.started_at).getTime();
-        const actualDuration = Math.floor((Date.now() - started) / 1000);
+        const isCountUp =
+          studyMethod === "stopwatch" || studyMethod === "target";
+
+        // For count-up methods (stopwatch/target) the actual studied time is
+        // the timer itself (excludes any paused time). For countdown methods
+        // fall back to the wall-clock duration of the session.
+        const actualDuration = isCountUp
+          ? timer.seconds
+          : Math.floor((Date.now() - new Date(activeSession.started_at).getTime()) / 1000);
         const actualMinutes = Math.floor(actualDuration / 60);
 
         await supabase
@@ -885,21 +892,26 @@ export default function RoomPage({
               </div>
 
               {timer.isRunning && timerMode === "focus" && (() => {
-                const methodConfig = STUDY_METHODS[studyMethod];
-                const focusDur = studyMethod === "custom"
-                  ? (room.study_duration ?? methodConfig.studyDuration ?? 1500)
-                  : (methodConfig.studyDuration ?? 1500);
-                const elapsedSeconds = focusDur - timer.seconds;
-                const liveXp = estimateLiveXp(Math.max(0, elapsedSeconds), room.study_duration ?? undefined);
-                const cycleEstimate = calculateSessionXp(Math.floor(focusDur / 60), room.study_duration ? room.study_duration / 60 : undefined);
+                const isCountUp =
+                  studyMethod === "stopwatch" || studyMethod === "target";
+                const elapsedSeconds = isCountUp
+                  ? timer.seconds
+                  : (() => {
+                      const methodConfig = STUDY_METHODS[studyMethod];
+                      const focusDur = studyMethod === "custom"
+                        ? (room.study_duration ?? methodConfig.studyDuration ?? 1500)
+                        : (methodConfig.studyDuration ?? 1500);
+                      return focusDur - timer.seconds;
+                    })();
+                const liveXp = estimateLiveXp(
+                  Math.max(0, elapsedSeconds),
+                  !isCountUp ? (room.study_duration ?? undefined) : undefined,
+                );
                 return (
                   <div className="flex items-center gap-4 text-xs">
                     <span className="flex items-center gap-1 text-success font-medium">
                       <Zap className="h-3 w-3" />
                       +{liveXp} XP earned
-                    </span>
-                    <span className="text-muted-foreground">
-                      ~{cycleEstimate.totalXp} XP this cycle
                     </span>
                   </div>
                 );
