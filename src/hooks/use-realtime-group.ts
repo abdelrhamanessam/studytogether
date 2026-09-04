@@ -18,15 +18,18 @@ export function useRealtimeGroup({
 }: UseRealtimeGroupOptions): UseRealtimeGroupReturn {
   const [members, setMembers] = useState<GroupMember[]>([]);
   const supabase = useRef(createClient());
+  const pendingRequestId = useRef(0);
 
   const refreshMembers = useCallback(async () => {
     if (!groupId) return;
+    const requestId = ++pendingRequestId.current;
     const { data } = await supabase.current
       .from("group_members")
       .select("*, profiles:user_id(*)")
       .eq("group_id", groupId)
       .order("joined_at", { ascending: true });
 
+    if (requestId !== pendingRequestId.current) return;
     if (data) {
       setMembers(data as GroupMember[]);
     }

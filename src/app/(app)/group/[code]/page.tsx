@@ -48,6 +48,8 @@ export default function GroupDetailPage({
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [memberTick, setMemberTick] = useState(0);
   const [joinState, setJoinState] = useState<"checking" | "member" | "full">("checking");
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [joinRetry, setJoinRetry] = useState(0);
   const joinedCheckedRef = useRef(false);
 
   useEffect(() => {
@@ -103,6 +105,7 @@ export default function GroupDetailPage({
   useEffect(() => {
     if (!group || !currentUserId || joinedCheckedRef.current) return;
     joinedCheckedRef.current = true;
+    setJoinError(null);
     (async () => {
       const supabase = createClient();
       const { data: membership } = await supabase
@@ -114,6 +117,7 @@ export default function GroupDetailPage({
 
       if (membership) {
         setJoinState("member");
+        await refreshMembers();
         return;
       }
 
@@ -131,13 +135,18 @@ export default function GroupDetailPage({
         user_id: currentUserId,
         role: "member",
       });
-      if (error) {
-        console.error("Auto-join error:", error.message, error.code, error.details);
+
+      if (error && error.code !== "23505") {
+        setJoinState("member");
+        setJoinError(error.message);
+        await refreshMembers();
+        return;
       }
+
       setJoinState("member");
       await refreshMembers();
     })();
-  }, [group, currentUserId, refreshMembers]);
+  }, [group, currentUserId, refreshMembers, joinRetry]);
 
   const todayKey = () => {
     const d = new Date();
@@ -289,6 +298,26 @@ export default function GroupDetailPage({
         <p className="text-sm text-muted-foreground animate-fade-in">
           {group.description}
         </p>
+      )}
+
+      {joinError && joinState === "member" && (
+        <div className="flex flex-col items-start gap-3 rounded-xl border border-danger/30 bg-danger/5 px-4 py-3">
+          <p className="text-sm text-danger">
+            Could not add you to the group: {joinError}
+          </p>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              joinedCheckedRef.current = false;
+              setJoinState("checking");
+              setJoinError(null);
+              setJoinRetry((n) => n + 1);
+            }}
+          >
+            Try again
+          </Button>
+        </div>
       )}
 
       {joinState === "full" ? (
