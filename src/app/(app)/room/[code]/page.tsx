@@ -106,6 +106,7 @@ export default function RoomPage({
     goalDuration?: number;
   } | null>(null);
   const [newAchievement, setNewAchievement] = useState<string | null>(null);
+  const [memberTick, setMemberTick] = useState(0);
 
   useEffect(() => {
     params.then((p) => setCode(p.code));
@@ -440,6 +441,14 @@ export default function RoomPage({
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [activeSubjectId, loadLessons]);
 
+  const hasActiveMembers = members.some((m) => m.status === "focusing");
+
+  useEffect(() => {
+    if (!hasActiveMembers) return;
+    const id = setInterval(() => setMemberTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [hasActiveMembers]);
+
   const handleJoin = useCallback(async () => {
     if (!room || !currentUserId) return;
     setJoining(true);
@@ -538,14 +547,28 @@ export default function RoomPage({
   const handlePause = useCallback(async () => {
     if (!room || !currentUserId) return;
     timer.pause();
+
+    const elapsed = Math.floor(
+      (Date.now() - new Date(currentUserMember?.session_started_at ?? Date.now()).getTime()) / 1000,
+    );
+    const isCountUp = studyMethod === "stopwatch" || studyMethod === "target";
+    const sessionElapsed = isCountUp
+      ? timer.seconds
+      : Math.max(0, (room.study_duration ?? 1500) - timer.seconds);
+    const newAccumulated = effectiveAccumulated(currentUserMember ?? {}) + sessionElapsed;
+
     const { error } = await supabaseRef.current
       .from("room_members")
-      .update({ status: "paused" })
+      .update({
+        status: "paused",
+        accumulated_seconds: newAccumulated,
+        last_active_date: todayKey(),
+      })
       .eq("room_id", room.id)
       .eq("user_id", currentUserId);
     if (error) console.error("Pause error:", error);
     addActivity("paused", "pause");
-  }, [room, currentUserId, timer, addActivity]);
+  }, [room, currentUserId, timer, addActivity, currentUserMember, studyMethod]);
 
   const handleResume = useCallback(async () => {
     if (!room || !currentUserId) return;
@@ -1180,7 +1203,9 @@ export default function RoomPage({
                     STATUS_BADGE[member.status] ?? STATUS_BADGE.idle;
 
                   let memberTimer = "0:00";
-                  if (
+                  if (member.user_id === currentUserId) {
+                    memberTimer = formatTimer(timer.seconds);
+                  } else if (
                     member.status === "focusing" &&
                     member.session_started_at
                   ) {
@@ -1189,8 +1214,17 @@ export default function RoomPage({
                         new Date(member.session_started_at).getTime()) /
                         1000,
                     );
+                    const isCountUp =
+                      studyMethod === "stopwatch" || studyMethod === "target";
                     memberTimer = formatTimer(
-                      effectiveAccumulated(member) + elapsed,
+                      isCountUp
+                        ? effectiveAccumulated(member) + elapsed
+                        : Math.max(
+                            0,
+                            effectiveAccumulated(member) -
+                              (room.study_duration ?? 1500) +
+                              elapsed,
+                          ),
                     );
                   } else {
                     memberTimer = formatTimer(effectiveAccumulated(member));

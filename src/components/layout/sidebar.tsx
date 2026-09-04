@@ -27,6 +27,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/rooms", label: "Study Rooms", icon: Users },
+  { href: "/groups", label: "Groups", icon: Users },
   { href: "/subjects", label: "Subjects", icon: BookOpen },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },

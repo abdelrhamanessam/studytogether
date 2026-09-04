@@ -15,6 +15,7 @@ import {
 const navItems = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/rooms", label: "Rooms", icon: Users },
+  { href: "/groups", label: "Groups", icon: Users },
   { href: "/subjects", label: "Subjects", icon: BookOpen },
   { href: "/leaderboard", label: "Ranks", icon: Trophy },
   { href: "/shop", label: "Shop", icon: ShoppingCart },

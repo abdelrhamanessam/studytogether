@@ -184,6 +184,27 @@ export interface Notification {
 
 export type StudyMethod = "pomodoro" | "long_pomodoro" | "deep_focus" | "custom" | "stopwatch" | "target";
 
+export interface Group {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  owner_id: string;
+  max_members: number;
+  created_at: string;
+  member_count?: number;
+}
+
+export interface GroupMember {
+  id: string;
+  group_id: string;
+  user_id: string;
+  role: string;
+  joined_at: string;
+  profiles?: Profile;
+  today_seconds?: number;
+}
+
 export interface StudyMethodConfig {
   label: string;
   studyDuration: number | null;
