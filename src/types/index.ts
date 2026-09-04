@@ -132,6 +132,7 @@ export interface StudySession {
   id: string;
   user_id: string;
   room_id: string | null;
+  group_id: string | null;
   subject_id: string | null;
   planned_duration: number | null;
   actual_duration: number;
@@ -201,6 +202,12 @@ export interface GroupMember {
   user_id: string;
   role: string;
   joined_at: string;
+  study_method: string;
+  status: string;
+  session_started_at: string | null;
+  accumulated_seconds: number;
+  last_active_date: string | null;
+  target_duration: number | null;
   profiles?: Profile;
   today_seconds?: number;
 }

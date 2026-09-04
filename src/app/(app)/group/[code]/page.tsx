@@ -12,26 +12,28 @@ import {
   Clock,
   Trophy,
   Zap,
-  ChevronDown,
+  BookOpen,
   LogOut,
+  DoorOpen,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { cn, formatDurationShort } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn, formatTimer } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import type { Group, GroupMember } from "@/types";
+import { useRealtimeGroup } from "@/hooks/use-realtime-group";
+import { GroupStudyPanel, focusDurationFor } from "@/components/group-study-panel";
+import type { Group, GroupMember, StudyMethod } from "@/types";
+import { STUDY_METHODS } from "@/types";
 
-interface MemberDetail extends GroupMember {
-  member_id: string;
-  username: string;
-  display_name: string;
-  avatar_url: string | null;
-  level: number;
-  role: string;
-  today_seconds: number;
-}
+const STATUS_BADGE: Record<string, { variant: BadgeVariant; label: string }> = {
+  focusing: { variant: "success", label: "Focusing" },
+  break: { variant: "warning", label: "On Break" },
+  paused: { variant: "muted", label: "Paused" },
+  idle: { variant: "muted", label: "Idle" },
+  finished: { variant: "default", label: "Finished" },
+};
 
 export default function GroupDetailPage({
   params,
@@ -41,11 +43,12 @@ export default function GroupDetailPage({
   const router = useRouter();
   const [code, setCode] = useState("");
   const [group, setGroup] = useState<Group | null>(null);
-  const [members, setMembers] = useState<MemberDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [joining, setJoining] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [memberTick, setMemberTick] = useState(0);
 
   useEffect(() => {
     params.then((p) => setCode(p.code));
@@ -78,19 +81,6 @@ export default function GroupDetailPage({
       }
 
       setGroup(groupData as Group);
-
-      const { data: memberData, error: memberError } = await supabase.rpc(
-        "get_group_details",
-        { p_group_id: groupData.id },
-      );
-
-      if (!memberError && memberData) {
-        setMembers(
-          (memberData as MemberDetail[]).sort(
-            (a, b) => (b.today_seconds ?? 0) - (a.today_seconds ?? 0),
-          ),
-        );
-      }
     } catch (err) {
       console.error("Failed to load group:", err);
     } finally {
@@ -101,6 +91,58 @@ export default function GroupDetailPage({
   useEffect(() => {
     loadGroup();
   }, [loadGroup]);
+
+  const { members, refreshMembers } = useRealtimeGroup({
+    groupId: group?.id ?? "",
+  });
+
+  const isMember = currentUserId
+    ? members.some((m) => m.user_id === currentUserId)
+    : false;
+  const currentMember = members.find((m) => m.user_id === currentUserId) ?? null;
+
+  const todayKey = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  const effectiveAccumulated = useCallback(
+    (member: { accumulated_seconds?: number | null; last_active_date?: string | null }) =>
+      member.last_active_date === todayKey() ? (member.accumulated_seconds ?? 0) : 0,
+    [],
+  );
+
+  const hasActiveMembers = members.some((m) => m.status === "focusing");
+
+  useEffect(() => {
+    if (!hasActiveMembers) return;
+    const id = setInterval(() => setMemberTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [hasActiveMembers]);
+
+  const handleJoin = async () => {
+    if (!group || !currentUserId) return;
+    setJoining(true);
+    try {
+      const supabase = createClient();
+      if (members.length >= group.max_members) {
+        alert("This group is full.");
+        return;
+      }
+      const { error } = await supabase.from("group_members").insert({
+        group_id: group.id,
+        user_id: currentUserId,
+        role: "member",
+      });
+      if (error) {
+        console.error("Join error:", error.message, error.code, error.details);
+        return;
+      }
+      await refreshMembers();
+    } finally {
+      setJoining(false);
+    }
+  };
 
   const handleLeave = async () => {
     if (!group || !currentUserId || leaving) return;
@@ -152,9 +194,38 @@ export default function GroupDetailPage({
     );
   }
 
-  const sorted = [...members].sort(
-    (a, b) => (b.today_seconds ?? 0) - (a.today_seconds ?? 0),
-  );
+  const sorted = [...members].sort((a, b) => {
+    const aTime =
+      effectiveAccumulated(a) +
+      (a.status === "focusing" && a.session_started_at
+        ? Math.floor((Date.now() - new Date(a.session_started_at).getTime()) / 1000)
+        : 0);
+    const bTime =
+      effectiveAccumulated(b) +
+      (b.status === "focusing" && b.session_started_at
+        ? Math.floor((Date.now() - new Date(b.session_started_at).getTime()) / 1000)
+        : 0);
+    return bTime - aTime;
+  });
+
+  const memberTimeFor = (member: GroupMember): string => {
+    const memberMethod = (member.study_method in STUDY_METHODS
+      ? member.study_method
+      : "pomodoro") as StudyMethod;
+    const isCountUp = memberMethod === "stopwatch" || memberMethod === "target";
+    if (member.status === "focusing" && member.session_started_at) {
+      const elapsed = Math.floor(
+        (Date.now() - new Date(member.session_started_at).getTime()) / 1000,
+      );
+      const acc = effectiveAccumulated(member);
+      return formatTimer(
+        isCountUp
+          ? acc + elapsed
+          : Math.max(0, acc - focusDurationFor(memberMethod) + elapsed),
+      );
+    }
+    return formatTimer(effectiveAccumulated(member));
+  };
 
   return (
     <div className="space-y-6">
@@ -186,16 +257,18 @@ export default function GroupDetailPage({
             </div>
           </div>
         </div>
-        <Button
-          variant="danger"
-          size="sm"
-          onClick={handleLeave}
-          loading={leaving}
-          className="gap-1 shrink-0"
-        >
-          <LogOut className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Leave</span>
-        </Button>
+        {isMember && (
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={handleLeave}
+            loading={leaving}
+            className="gap-1 shrink-0"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Leave</span>
+          </Button>
+        )}
       </div>
 
       {group.description && (
@@ -204,124 +277,188 @@ export default function GroupDetailPage({
         </p>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-4">
-          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            <Users className="h-4 w-4" />
-            Members ({members.length})
-          </h2>
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-            {members.map((member) => (
-              <div
-                key={member.member_id}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl border p-3 transition-all",
-                  member.member_id === currentUserId
-                    ? "border-primary/30 bg-primary/5"
-                    : "border-border bg-card",
-                )}
-              >
-                <Avatar
-                  src={member.avatar_url}
-                  alt={member.display_name}
-                  fallback={member.display_name ?? "?"}
-                  size="md"
-                  showLevelRing
-                  level={member.level}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate text-sm font-medium">
-                      {member.display_name ?? member.username ?? "Unknown"}
-                      {member.member_id === currentUserId && (
-                        <span className="text-muted-foreground"> (you)</span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <Badge
-                      variant={member.role === "owner" ? "accent" : "secondary"}
-                      size="sm"
-                      className="gap-1"
-                    >
-                      {member.role === "owner" && (
-                        <Crown className="h-3 w-3" />
-                      )}
-                      {member.role === "owner" ? "Owner" : "Member"}
-                    </Badge>
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      {formatDurationShort(member.today_seconds ?? 0)}
-                      <span className="text-[11px] opacity-70">today</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
+      {!isMember ? (
+        <Card className="flex flex-col items-center gap-4 py-12">
+          <Users className="h-12 w-12 text-primary" />
+          <div className="text-center">
+            <h3 className="text-lg font-semibold">Join this group</h3>
+            <p className="text-sm text-muted-foreground">
+              Study together with {members.length} other{" "}
+              {members.length === 1 ? "person" : "people"}
+            </p>
+          </div>
+          <Button
+            size="lg"
+            onClick={() => void handleJoin()}
+            loading={joining}
+            className="gap-2"
+          >
+            <DoorOpen className="h-5 w-5" />
+            Join Group
+          </Button>
+        </Card>
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-4">
+            {currentMember && (
+              <GroupStudyPanel
+                groupId={group.id}
+                userId={currentUserId!}
+                member={currentMember}
+              />
+            )}
 
-            {members.length === 0 && (
-              <div className="col-span-full py-8 text-center text-sm text-muted-foreground">
-                No members yet.
+            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              <Users className="h-4 w-4" />
+              Members ({members.length})
+            </h2>
+            <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
+              {members.map((member) => {
+                const profile = member.profiles;
+                const memberMethod = (member.study_method in STUDY_METHODS
+                  ? member.study_method
+                  : "pomodoro") as StudyMethod;
+                const statusInfo =
+                  STATUS_BADGE[member.status] ?? STATUS_BADGE.idle;
+
+                return (
+                  <div
+                    key={member.id}
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl border p-3 transition-all",
+                      member.user_id === currentUserId
+                        ? "border-primary/30 bg-primary/5"
+                        : "border-border bg-card",
+                      member.status === "focusing" && "border-success/20 bg-success/5",
+                    )}
+                  >
+                    <Avatar
+                      src={profile?.avatar_url}
+                      alt={profile?.display_name ?? profile?.username ?? ""}
+                      fallback={profile?.display_name ?? profile?.username ?? "?"}
+                      size="md"
+                      showLevelRing={
+                        member.status === "focusing" && member.user_id !== currentUserId
+                      }
+                      level={profile?.level}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-medium">
+                          {profile?.display_name ?? profile?.username ?? "Unknown"}
+                          {member.user_id === currentUserId && (
+                            <span className="text-muted-foreground"> (you)</span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <Badge variant={statusInfo.variant} size="sm">
+                          {statusInfo.label}
+                        </Badge>
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                          {memberTimeFor(member)}
+                          <span className="ml-1 text-[11px] opacity-70">today</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <Badge variant={member.role === "owner" ? "accent" : "secondary"} size="sm" className="gap-1">
+                          {member.role === "owner" && <Crown className="h-3 w-3" />}
+                          {member.role === "owner" ? "Owner" : "Member"}
+                        </Badge>
+                        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <BookOpen className="h-3 w-3" />
+                          {STUDY_METHODS[memberMethod].label}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {members.length === 0 && (
+                <div className="col-span-full py-8 text-center text-sm text-muted-foreground">
+                  No members yet. Be the first to join!
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              <Trophy className="h-4 w-4" />
+              Leaderboard
+            </h2>
+            <Card>
+              <CardContent className="p-0">
+                {sorted.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    No data yet
+                  </p>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {sorted.map((member, index) => {
+                      const aTime =
+                        effectiveAccumulated(member) +
+                        (member.status === "focusing" && member.session_started_at
+                          ? Math.floor((Date.now() - new Date(member.session_started_at).getTime()) / 1000)
+                          : 0);
+                      return (
+                        <div
+                          key={member.id}
+                          className={cn(
+                            "flex items-center gap-3 px-4 py-3",
+                            index < 3 && "bg-muted/30",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "w-6 text-center text-sm font-bold",
+                              index === 0 && "text-amber-500",
+                              index === 1 && "text-gray-400",
+                              index === 2 && "text-amber-700",
+                              index > 2 && "text-muted-foreground",
+                            )}
+                          >
+                            {index + 1}
+                          </span>
+                          <Avatar
+                            src={member.profiles?.avatar_url}
+                            alt={member.profiles?.display_name ?? member.profiles?.username ?? ""}
+                            fallback={member.profiles?.display_name ?? member.profiles?.username ?? "?"}
+                            size="sm"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <span className="truncate text-sm font-medium block">
+                              {member.profiles?.display_name ?? member.profiles?.username ?? "Unknown"}
+                            </span>
+                          </div>
+                          <span className="flex items-center gap-1 text-xs tabular-nums text-muted-foreground shrink-0">
+                            <Clock className="h-3 w-3" />
+                            {formatTimer(aTime)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {currentMember && (
+              <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+                <Zap className="h-4 w-4 text-primary shrink-0" />
+                <p className="text-xs text-muted-foreground">
+                  Your time today:{" "}
+                  <span className="font-semibold text-foreground">
+                    {formatTimer(effectiveAccumulated(currentMember))}
+                  </span>
+                  {currentMember.status === "focusing" && " (counting up…)"}
+                </p>
               </div>
             )}
           </div>
         </div>
-
-        <div className="space-y-4">
-          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            <Trophy className="h-4 w-4" />
-            Leaderboard
-          </h2>
-          <Card>
-            <CardContent className="p-0">
-              {sorted.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No data yet
-                </p>
-              ) : (
-                <div className="divide-y divide-border">
-                  {sorted.map((member, index) => (
-                    <div
-                      key={member.member_id}
-                      className={cn(
-                        "flex items-center gap-3 px-4 py-3",
-                        index < 3 && "bg-muted/30",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "w-6 text-center text-sm font-bold",
-                          index === 0 && "text-amber-500",
-                          index === 1 && "text-gray-400",
-                          index === 2 && "text-amber-700",
-                          index > 2 && "text-muted-foreground",
-                        )}
-                      >
-                        {index + 1}
-                      </span>
-                      <Avatar
-                        src={member.avatar_url}
-                        alt={member.display_name}
-                        fallback={member.display_name ?? "?"}
-                        size="sm"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <span className="truncate text-sm font-medium block">
-                          {member.display_name ?? "Unknown"}
-                        </span>
-                      </div>
-                      <span className="flex items-center gap-1 text-xs tabular-nums text-muted-foreground shrink-0">
-                        <Clock className="h-3 w-3" />
-                        {formatDurationShort(member.today_seconds ?? 0)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
