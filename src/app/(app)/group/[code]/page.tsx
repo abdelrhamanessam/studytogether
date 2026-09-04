@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -14,7 +14,6 @@ import {
   Zap,
   BookOpen,
   LogOut,
-  DoorOpen,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatTimer } from "@/lib/utils";
@@ -46,9 +45,10 @@ export default function GroupDetailPage({
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [leaving, setLeaving] = useState(false);
-  const [joining, setJoining] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [memberTick, setMemberTick] = useState(0);
+  const [joinState, setJoinState] = useState<"checking" | "member" | "full">("checking");
+  const joinedCheckedRef = useRef(false);
 
   useEffect(() => {
     params.then((p) => setCode(p.code));
@@ -96,10 +96,48 @@ export default function GroupDetailPage({
     groupId: group?.id ?? "",
   });
 
-  const isMember = currentUserId
-    ? members.some((m) => m.user_id === currentUserId)
-    : false;
+  const isMember = joinState === "member";
   const currentMember = members.find((m) => m.user_id === currentUserId) ?? null;
+
+  // Auto-join: opening a group page puts you inside directly.
+  useEffect(() => {
+    if (!group || !currentUserId || joinedCheckedRef.current) return;
+    joinedCheckedRef.current = true;
+    (async () => {
+      const supabase = createClient();
+      const { data: membership } = await supabase
+        .from("group_members")
+        .select("id")
+        .eq("group_id", group.id)
+        .eq("user_id", currentUserId)
+        .maybeSingle();
+
+      if (membership) {
+        setJoinState("member");
+        return;
+      }
+
+      const { count } = await supabase
+        .from("group_members")
+        .select("id", { count: "exact", head: true })
+        .eq("group_id", group.id);
+      if ((count ?? 0) >= group.max_members) {
+        setJoinState("full");
+        return;
+      }
+
+      const { error } = await supabase.from("group_members").insert({
+        group_id: group.id,
+        user_id: currentUserId,
+        role: "member",
+      });
+      if (error) {
+        console.error("Auto-join error:", error.message, error.code, error.details);
+      }
+      setJoinState("member");
+      await refreshMembers();
+    })();
+  }, [group, currentUserId, refreshMembers]);
 
   const todayKey = () => {
     const d = new Date();
@@ -119,30 +157,6 @@ export default function GroupDetailPage({
     const id = setInterval(() => setMemberTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, [hasActiveMembers]);
-
-  const handleJoin = async () => {
-    if (!group || !currentUserId) return;
-    setJoining(true);
-    try {
-      const supabase = createClient();
-      if (members.length >= group.max_members) {
-        alert("This group is full.");
-        return;
-      }
-      const { error } = await supabase.from("group_members").insert({
-        group_id: group.id,
-        user_id: currentUserId,
-        role: "member",
-      });
-      if (error) {
-        console.error("Join error:", error.message, error.code, error.details);
-        return;
-      }
-      await refreshMembers();
-    } finally {
-      setJoining(false);
-    }
-  };
 
   const handleLeave = async () => {
     if (!group || !currentUserId || leaving) return;
@@ -257,7 +271,7 @@ export default function GroupDetailPage({
             </div>
           </div>
         </div>
-        {isMember && (
+        {joinState === "member" && (
           <Button
             variant="danger"
             size="sm"
@@ -277,35 +291,36 @@ export default function GroupDetailPage({
         </p>
       )}
 
-      {!isMember ? (
+      {joinState === "full" ? (
         <Card className="flex flex-col items-center gap-4 py-12">
-          <Users className="h-12 w-12 text-primary" />
+          <Users className="h-12 w-12 text-danger" />
           <div className="text-center">
-            <h3 className="text-lg font-semibold">Join this group</h3>
+            <h3 className="text-lg font-semibold">This group is full</h3>
             <p className="text-sm text-muted-foreground">
-              Study together with {members.length} other{" "}
-              {members.length === 1 ? "person" : "people"}
+              The member limit has been reached.
             </p>
           </div>
-          <Button
-            size="lg"
-            onClick={() => void handleJoin()}
-            loading={joining}
-            className="gap-2"
-          >
-            <DoorOpen className="h-5 w-5" />
-            Join Group
-          </Button>
+          <Link href="/groups">
+            <Button variant="secondary">Browse Groups</Button>
+          </Link>
         </Card>
+      ) : joinState === "checking" ? (
+        <div className="flex h-[40vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-4">
-            {currentMember && (
+            {currentMember ? (
               <GroupStudyPanel
                 groupId={group.id}
                 userId={currentUserId!}
                 member={currentMember}
               />
+            ) : (
+              <div className="flex h-40 items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
             )}
 
             <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
