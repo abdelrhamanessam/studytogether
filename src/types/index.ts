@@ -194,23 +194,15 @@ export interface Group {
   owner_id: string;
   max_members: number;
   created_at: string;
-  member_count?: number;
 }
 
 export interface GroupMember {
   id: string;
   group_id: string;
   user_id: string;
-  role: string;
+  role: "owner" | "member";
   joined_at: string;
-  study_method: string;
-  status: string;
-  session_started_at: string | null;
-  accumulated_seconds: number;
-  last_active_date: string | null;
-  target_duration: number | null;
   profiles?: Profile;
-  today_seconds?: number;
 }
 
 export interface StudyMethodConfig {

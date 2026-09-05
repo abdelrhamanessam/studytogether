@@ -3,29 +3,17 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Plus,
-  Search,
-  Users,
-  Loader2,
-  DoorOpen,
-  Copy,
-} from "lucide-react";
+import { Plus, Users, Loader2, DoorOpen, Copy } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import type { Group } from "@/types";
 
-type GroupWithCount = Group & {
-  member_count?: number;
-};
-
 export default function GroupsPage() {
   const router = useRouter();
-  const [groups, setGroups] = useState<GroupWithCount[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [joinCode, setJoinCode] = useState("");
   const [joinError, setJoinError] = useState("");
@@ -48,8 +36,8 @@ export default function GroupsPage() {
       .eq("user_id", user.id);
 
     const userGroups = (data ?? [])
-      .map((row: any) => row.groups)
-      .filter(Boolean) as GroupWithCount[];
+      .map((row: any) => row.groups as Group | null)
+      .filter((g): g is Group => Boolean(g));
 
     setGroups(userGroups);
     setLoading(false);
@@ -182,13 +170,6 @@ export default function GroupsPage() {
                       {group.description}
                     </p>
                   )}
-
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" />
-                      {group.member_count ?? 0} / {group.max_members}
-                    </span>
-                  </div>
 
                   <div className="mt-auto border-t border-border pt-3">
                     <Button size="sm" variant="secondary" className="w-full">
