@@ -29,6 +29,7 @@ export interface UseTimerReturn {
   pause: () => void;
   resume: () => void;
   resumeFrom: (initialSeconds: number, initialMode: TimerMode, initialCycle?: number) => void;
+  restore: (initialSeconds: number, initialMode: TimerMode, initialCycle?: number) => void;
   continueNext: () => void;
   reset: () => void;
   skip: () => void;
@@ -284,6 +285,18 @@ export function useTimer({
     [isCountdown, startCountdown, startCountup],
   );
 
+  const restore = useCallback(
+    (initialSeconds: number, initialMode: TimerMode, initialCycle?: number) => {
+      clearTimer();
+      setIsRunning(false);
+      setMode(initialMode);
+      setCurrentCycle(initialCycle ?? 1);
+      setPhaseComplete(false);
+      setSeconds(Math.max(0, initialSeconds));
+    },
+    [clearTimer],
+  );
+
   const reset = useCallback(() => {
     clearTimer();
     setIsRunning(false);
@@ -337,6 +350,7 @@ export function useTimer({
     pause,
     resume,
     resumeFrom,
+    restore,
     continueNext,
     reset,
     skip,

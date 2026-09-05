@@ -124,6 +124,7 @@ export interface RoomMember {
   session_started_at: string | null;
   accumulated_seconds: number;
   last_active_date: string | null;
+  paused_remaining_seconds?: number | null;
   joined_at: string;
   profiles?: Profile;
 }

@@ -275,7 +275,7 @@ export default function RoomPage({
 
       const { data: memberData, error: memberCheckError } = await supabase
         .from("room_members")
-        .select("id, status, session_started_at, accumulated_seconds, last_active_date")
+        .select("id, status, session_started_at, accumulated_seconds, last_active_date, paused_remaining_seconds")
         .eq("room_id", typed.id)
         .eq("user_id", user.id)
         .maybeSingle();
@@ -318,7 +318,6 @@ export default function RoomPage({
             (Date.now() - new Date(memberData.session_started_at).getTime()) / 1000,
           );
           const studyMethodVal = (typed.study_method ?? "pomodoro") as StudyMethod;
-          const methodConfig = STUDY_METHODS[studyMethodVal];
           const isCountdownMethod =
             studyMethodVal === "pomodoro" ||
             studyMethodVal === "long_pomodoro" ||
@@ -326,10 +325,7 @@ export default function RoomPage({
             studyMethodVal === "custom";
 
           if (isCountdownMethod) {
-            const focusDur = studyMethodVal === "custom"
-              ? (typed.study_duration ?? methodConfig.studyDuration ?? 1500)
-              : (methodConfig.studyDuration ?? 1500);
-            const remaining = Math.max(1, focusDur - elapsed);
+            const remaining = Math.max(1, roomFocusDuration(typed) - elapsed);
             pendingResumeRef.current = {
               seconds: remaining,
               mode: "focus",
@@ -346,9 +342,29 @@ export default function RoomPage({
 
           await supabase
             .from("room_members")
-            .update({ status: "focusing" })
+            .update({ status: "focusing", paused_remaining_seconds: null })
             .eq("room_id", typed.id)
             .eq("user_id", user.id);
+        }
+
+        if (memberData.status === "paused") {
+          const studyMethodVal = (typed.study_method ?? "pomodoro") as StudyMethod;
+          const isCountdownMethod =
+            studyMethodVal === "pomodoro" ||
+            studyMethodVal === "long_pomodoro" ||
+            studyMethodVal === "deep_focus" ||
+            studyMethodVal === "custom";
+          const elapsed = memberData.session_started_at
+            ? Math.max(0, Math.floor((Date.now() - new Date(memberData.session_started_at).getTime()) / 1000))
+            : 0;
+
+          if (isCountdownMethod) {
+            const remaining = memberData.paused_remaining_seconds ?? Math.max(0, roomFocusDuration(typed) - elapsed);
+            timer.restore(Math.max(1, remaining), "focus", 1);
+          } else {
+            const restored = memberData.paused_remaining_seconds ?? effectiveAccumulated(memberData) + (elapsed || 0);
+            timer.restore(restored, "focus", 1);
+          }
         }
       }
     } catch (err) {
@@ -371,6 +387,15 @@ export default function RoomPage({
 
   const effectiveAccumulated = (member: { accumulated_seconds?: number | null; last_active_date?: string | null }) =>
     member.last_active_date === todayKey() ? (member.accumulated_seconds ?? 0) : 0;
+
+  const roomFocusDuration = (roomLike: {
+    study_method: string | null;
+    study_duration: number | null;
+  }) => {
+    const method = (roomLike.study_method ?? "pomodoro") as StudyMethod;
+    if (method === "custom") return roomLike.study_duration ?? 25 * 60;
+    return STUDY_METHODS[method].studyDuration ?? roomLike.study_duration ?? 25 * 60;
+  };
 
   useEffect(() => {
     loadRoom();
@@ -528,6 +553,7 @@ export default function RoomPage({
         .update({
           status: "focusing",
           session_started_at: new Date().toISOString(),
+          paused_remaining_seconds: null,
         })
         .eq("room_id", room.id)
         .eq("user_id", currentUserId);
@@ -548,14 +574,12 @@ export default function RoomPage({
     if (!room || !currentUserId) return;
     timer.pause();
 
-    const elapsed = Math.floor(
-      (Date.now() - new Date(currentUserMember?.session_started_at ?? Date.now()).getTime()) / 1000,
-    );
     const isCountUp = studyMethod === "stopwatch" || studyMethod === "target";
     const sessionElapsed = isCountUp
       ? timer.seconds
-      : Math.max(0, (room.study_duration ?? 1500) - timer.seconds);
+      : Math.max(0, roomFocusDuration(room) - timer.seconds);
     const newAccumulated = effectiveAccumulated(currentUserMember ?? {}) + sessionElapsed;
+    const pausedRemaining = isCountUp ? newAccumulated : Math.max(1, roomFocusDuration(room) - sessionElapsed);
 
     const { error } = await supabaseRef.current
       .from("room_members")
@@ -563,6 +587,7 @@ export default function RoomPage({
         status: "paused",
         accumulated_seconds: newAccumulated,
         last_active_date: todayKey(),
+        paused_remaining_seconds: pausedRemaining,
       })
       .eq("room_id", room.id)
       .eq("user_id", currentUserId);
@@ -578,6 +603,7 @@ export default function RoomPage({
       .update({
         status: "focusing",
         session_started_at: new Date().toISOString(),
+        paused_remaining_seconds: null,
       })
       .eq("room_id", room.id)
       .eq("user_id", currentUserId);
@@ -728,13 +754,15 @@ export default function RoomPage({
         });
       }
 
-      await supabase
+await supabase
         .from("room_members")
         .update({
           status: "finished",
           accumulated_seconds:
-            effectiveAccumulated(currentUserMember ?? {}) + timer.seconds,
+            effectiveAccumulated(currentUserMember ?? {}) +
+            (isCountUp ? timer.seconds : Math.max(0, focusDur - timer.seconds)),
           last_active_date: todayKey(),
+          paused_remaining_seconds: null,
         })
         .eq("room_id", room.id)
         .eq("user_id", currentUserId);
@@ -755,7 +783,7 @@ export default function RoomPage({
     hasResumedRef.current = false;
     await supabaseRef.current
       .from("room_members")
-      .update({ status: "idle" })
+      .update({ status: "idle", paused_remaining_seconds: null })
       .eq("room_id", room.id)
       .eq("user_id", currentUserId);
   }, [room, currentUserId, timer]);
@@ -799,6 +827,8 @@ export default function RoomPage({
   }
 
   const timerMode: TimerMode = timer.mode;
+  const isCountUp = studyMethod === "stopwatch" || studyMethod === "target";
+  const focusDur = roomFocusDuration(room);
   const timerStatusColor =
     timerMode === "focus" && timer.isRunning
       ? "text-success"
@@ -939,17 +969,9 @@ export default function RoomPage({
               </div>
 
               {timer.isRunning && timerMode === "focus" && (() => {
-                const isCountUp =
-                  studyMethod === "stopwatch" || studyMethod === "target";
                 const elapsedSeconds = isCountUp
                   ? timer.seconds
-                  : (() => {
-                      const methodConfig = STUDY_METHODS[studyMethod];
-                      const focusDur = studyMethod === "custom"
-                        ? (room.study_duration ?? methodConfig.studyDuration ?? 1500)
-                        : (methodConfig.studyDuration ?? 1500);
-                      return focusDur - timer.seconds;
-                    })();
+                  : focusDur - timer.seconds;
                 const liveXp = estimateLiveXp(
                   Math.max(0, elapsedSeconds),
                   !isCountUp
@@ -1202,9 +1224,18 @@ export default function RoomPage({
                   const statusInfo =
                     STATUS_BADGE[member.status] ?? STATUS_BADGE.idle;
 
-                  let memberTimer = "0:00";
+                  const todayStudied = (m: typeof member, liveSeconds: number) =>
+                    effectiveAccumulated(m) + Math.max(0, liveSeconds);
+                  let studied;
                   if (member.user_id === currentUserId) {
-                    memberTimer = formatTimer(timer.seconds);
+                    studied = todayStudied(
+                      member,
+                      timerMode === "focus" && timer.isRunning
+                        ? isCountUp
+                          ? timer.seconds
+                          : focusDur - timer.seconds
+                        : 0,
+                    );
                   } else if (
                     member.status === "focusing" &&
                     member.session_started_at
@@ -1214,21 +1245,11 @@ export default function RoomPage({
                         new Date(member.session_started_at).getTime()) /
                         1000,
                     );
-                    const isCountUp =
-                      studyMethod === "stopwatch" || studyMethod === "target";
-                    memberTimer = formatTimer(
-                      isCountUp
-                        ? effectiveAccumulated(member) + elapsed
-                        : Math.max(
-                            0,
-                            effectiveAccumulated(member) -
-                              (room.study_duration ?? 1500) +
-                              elapsed,
-                          ),
-                    );
+                    studied = todayStudied(member, elapsed);
                   } else {
-                    memberTimer = formatTimer(effectiveAccumulated(member));
+                    studied = effectiveAccumulated(member);
                   }
+                  const memberTimer = formatTimer(studied);
                   const isToday = member.last_active_date === todayKey();
 
                   return (
@@ -1357,11 +1378,32 @@ export default function RoomPage({
                     </div>
                   )}
                   {(() => {
-                    const focusMin = studyMethod === "custom"
-                      ? Math.floor((room.study_duration ?? 1500) / 60)
-                      : Math.floor((timerConfig.studyDuration ?? 1500) / 60);
-                    const plannedMin = studyMethod === "target" ? undefined : focusMin;
-                    const est = calculateSessionXp(focusMin, plannedMin);
+                    if (studyMethod === "target") {
+                      const sessionMin = Math.max(1, Math.floor((room.target_duration ?? 0) / 60));
+                      const est = calculateSessionXp(sessionMin, undefined);
+                      return (
+                        <div className="flex justify-between pt-1 border-t border-border">
+                          <span className="text-primary font-medium">Est. XP</span>
+                          <span className="text-primary font-semibold">
+                            {est.totalXp} (per session of {sessionMin} min)
+                          </span>
+                        </div>
+                      );
+                    }
+                    if (studyMethod === "stopwatch") {
+                      const sessionMin = Math.floor(timer.seconds / 60);
+                      const est = calculateSessionXp(sessionMin, undefined);
+                      return (
+                        <div className="flex justify-between pt-1 border-t border-border">
+                          <span className="text-primary font-medium">Est. XP</span>
+                          <span className="text-primary font-semibold">
+                            {est.totalXp} (per session of {sessionMin} min)
+                          </span>
+                        </div>
+                      );
+                    }
+                    const focusMin = Math.floor(focusDur / 60);
+                    const est = calculateSessionXp(focusMin, focusMin);
                     const cyc = room.cycles ?? timerConfig.cycles ?? 1;
                     return (
                       <div className="flex justify-between pt-1 border-t border-border">
