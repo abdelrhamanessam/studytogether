@@ -141,22 +141,29 @@ export function GroupStudyPanel({ groupId, userId, member }: GroupStudyPanelProp
       !hasResumedRef.current
     ) {
       hasResumedRef.current = true;
-      const elapsed = Math.floor(
-        (Date.now() - new Date(member.session_started_at).getTime()) / 1000,
-      );
-      if (isCountdownMethod(method)) {
-        const focusDur = focusDurationFor(method);
-        pendingResumeRef.current = {
-          seconds: Math.max(1, focusDur - elapsed),
-          mode: "focus",
-          cycle: 1,
-        };
+      if (member.last_active_date !== todayKey()) {
+        void saveMember({
+          status: "idle",
+          session_started_at: null,
+        });
       } else {
-        pendingResumeRef.current = {
-          seconds: effectiveAccumulated(member) + elapsed,
-          mode: "focus",
-          cycle: 1,
-        };
+        const elapsed = Math.floor(
+          (Date.now() - new Date(member.session_started_at).getTime()) / 1000,
+        );
+        if (isCountdownMethod(method)) {
+          const focusDur = focusDurationFor(method);
+          pendingResumeRef.current = {
+            seconds: Math.max(1, focusDur - elapsed),
+            mode: "focus",
+            cycle: 1,
+          };
+        } else {
+          pendingResumeRef.current = {
+            seconds: effectiveAccumulated(member) + elapsed,
+            mode: "focus",
+            cycle: 1,
+          };
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

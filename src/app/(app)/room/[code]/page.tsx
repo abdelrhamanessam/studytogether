@@ -308,62 +308,85 @@ export default function RoomPage({
           await loadLessons(fallback.id);
         }
 
+        const d = new Date();
+        const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const isSameDaySession = memberData.last_active_date === today;
+        const resetStale = async () => {
+          await supabase
+            .from("room_members")
+            .update({
+              status: "idle",
+              session_started_at: null,
+              paused_remaining_seconds: null,
+            })
+            .eq("room_id", typed.id)
+            .eq("user_id", user.id);
+        };
+
         if (
           memberData.status === "focusing" &&
           memberData.session_started_at &&
           !hasResumedRef.current
         ) {
           hasResumedRef.current = true;
-          const elapsed = Math.floor(
-            (Date.now() - new Date(memberData.session_started_at).getTime()) / 1000,
-          );
-          const studyMethodVal = (typed.study_method ?? "pomodoro") as StudyMethod;
-          const isCountdownMethod =
-            studyMethodVal === "pomodoro" ||
-            studyMethodVal === "long_pomodoro" ||
-            studyMethodVal === "deep_focus" ||
-            studyMethodVal === "custom";
-
-          if (isCountdownMethod) {
-            const remaining = Math.max(1, roomFocusDuration(typed) - elapsed);
-            pendingResumeRef.current = {
-              seconds: remaining,
-              mode: "focus",
-              cycle: 1,
-            };
+          if (!isSameDaySession) {
+            await resetStale();
           } else {
-            const accumulated = effectiveAccumulated(memberData);
-            pendingResumeRef.current = {
-              seconds: accumulated + elapsed,
-              mode: "focus",
-              cycle: 1,
-            };
-          }
+            const elapsed = Math.floor(
+              (Date.now() - new Date(memberData.session_started_at).getTime()) / 1000,
+            );
+            const studyMethodVal = (typed.study_method ?? "pomodoro") as StudyMethod;
+            const isCountdownMethod =
+              studyMethodVal === "pomodoro" ||
+              studyMethodVal === "long_pomodoro" ||
+              studyMethodVal === "deep_focus" ||
+              studyMethodVal === "custom";
 
-          await supabase
-            .from("room_members")
-            .update({ status: "focusing", paused_remaining_seconds: null })
-            .eq("room_id", typed.id)
-            .eq("user_id", user.id);
+            if (isCountdownMethod) {
+              const remaining = Math.max(1, roomFocusDuration(typed) - elapsed);
+              pendingResumeRef.current = {
+                seconds: remaining,
+                mode: "focus",
+                cycle: 1,
+              };
+            } else {
+              const accumulated = effectiveAccumulated(memberData);
+              pendingResumeRef.current = {
+                seconds: accumulated + elapsed,
+                mode: "focus",
+                cycle: 1,
+              };
+            }
+
+            await supabase
+              .from("room_members")
+              .update({ status: "focusing", paused_remaining_seconds: null })
+              .eq("room_id", typed.id)
+              .eq("user_id", user.id);
+          }
         }
 
         if (memberData.status === "paused") {
-          const studyMethodVal = (typed.study_method ?? "pomodoro") as StudyMethod;
-          const isCountdownMethod =
-            studyMethodVal === "pomodoro" ||
-            studyMethodVal === "long_pomodoro" ||
-            studyMethodVal === "deep_focus" ||
-            studyMethodVal === "custom";
-          const elapsed = memberData.session_started_at
-            ? Math.max(0, Math.floor((Date.now() - new Date(memberData.session_started_at).getTime()) / 1000))
-            : 0;
-
-          if (isCountdownMethod) {
-            const remaining = memberData.paused_remaining_seconds ?? Math.max(0, roomFocusDuration(typed) - elapsed);
-            timer.restore(Math.max(1, remaining), "focus", 1);
+          if (!isSameDaySession) {
+            await resetStale();
           } else {
-            const restored = memberData.paused_remaining_seconds ?? effectiveAccumulated(memberData) + (elapsed || 0);
-            timer.restore(restored, "focus", 1);
+            const studyMethodVal = (typed.study_method ?? "pomodoro") as StudyMethod;
+            const isCountdownMethod =
+              studyMethodVal === "pomodoro" ||
+              studyMethodVal === "long_pomodoro" ||
+              studyMethodVal === "deep_focus" ||
+              studyMethodVal === "custom";
+            const elapsed = memberData.session_started_at
+              ? Math.max(0, Math.floor((Date.now() - new Date(memberData.session_started_at).getTime()) / 1000))
+              : 0;
+
+            if (isCountdownMethod) {
+              const remaining = memberData.paused_remaining_seconds ?? Math.max(0, roomFocusDuration(typed) - elapsed);
+              timer.restore(Math.max(1, remaining), "focus", 1);
+            } else {
+              const restored = memberData.paused_remaining_seconds ?? effectiveAccumulated(memberData) + (elapsed || 0);
+              timer.restore(restored, "focus", 1);
+            }
           }
         }
       }
