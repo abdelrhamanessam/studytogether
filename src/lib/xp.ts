@@ -82,15 +82,12 @@ const LEVEL_THRESHOLDS = [
 ];
 
 export function calculateLevel(totalXp: number): number {
-  for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
-    if (totalXp >= LEVEL_THRESHOLDS[i]) {
-      if (i < LEVEL_THRESHOLDS.length - 1) return i + 1;
-    }
+  const last = LEVEL_THRESHOLDS.length - 1;
+  if (totalXp >= LEVEL_THRESHOLDS[last]) {
+    return LEVEL_THRESHOLDS.length + Math.floor((totalXp - LEVEL_THRESHOLDS[last]) / 4000);
   }
-  if (totalXp >= LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1]) {
-    const baseLevel = LEVEL_THRESHOLDS.length;
-    const remaining = totalXp - LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
-    return baseLevel + Math.floor(remaining / 4000);
+  for (let i = last - 1; i >= 0; i--) {
+    if (totalXp >= LEVEL_THRESHOLDS[i]) return i + 1;
   }
   return 1;
 }
