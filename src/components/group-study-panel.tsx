@@ -106,6 +106,7 @@ export function GroupStudyPanel({ groupId, userId, member }: GroupStudyPanelProp
         void saveMember({
           status: "focusing",
           session_started_at: new Date().toISOString(),
+          last_active_date: todayKey(),
         });
       } else {
         completedFocusRef.current += focusDurationFor(methodRef.current);
@@ -147,11 +148,18 @@ export function GroupStudyPanel({ groupId, userId, member }: GroupStudyPanelProp
       !hasResumedRef.current
     ) {
       hasResumedRef.current = true;
-      if (member.last_active_date !== todayKey()) {
+      const startedAt = new Date(member.session_started_at).getTime();
+      const localMidnight = new Date();
+      localMidnight.setHours(0, 0, 0, 0);
+      const stale =
+        startedAt < localMidnight.getTime() ||
+        (member.last_active_date != null &&
+          member.last_active_date !== todayKey());
+      if (stale) {
         void saveMember({ status: "idle", session_started_at: null });
       } else {
         const elapsed = Math.floor(
-          (Date.now() - new Date(member.session_started_at).getTime()) / 1000,
+          Math.max(0, (Date.now() - startedAt) / 1000),
         );
         if (isCountdownMethod(methodRef.current)) {
           pendingResumeRef.current = {
@@ -257,6 +265,7 @@ export function GroupStudyPanel({ groupId, userId, member }: GroupStudyPanelProp
       status: "focusing",
       session_started_at: new Date().toISOString(),
       study_method: method,
+      last_active_date: todayKey(),
     });
     timer.start();
   }, [groupId, userId, method, targetMinutes, timerConfig.cycles, timer, saveMember]);
@@ -292,6 +301,7 @@ export function GroupStudyPanel({ groupId, userId, member }: GroupStudyPanelProp
       status: "focusing",
       session_started_at: new Date().toISOString(),
       paused_remaining_seconds: null,
+      last_active_date: todayKey(),
     });
   }, [timer, saveMember]);
 
