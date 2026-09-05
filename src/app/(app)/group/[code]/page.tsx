@@ -3,17 +3,26 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Users, Loader2, Copy, Crown, LogOut } from "lucide-react";
+import { ArrowLeft, Users, Loader2, Copy, Crown, Clock, Zap, Trophy, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { cn } from "@/lib/utils";
+import { cn, formatTimer } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import type { Group, GroupMember } from "@/types";
+import { GroupStudyPanel } from "@/components/group-study-panel";
+import type { Group, GroupMember, StudyMethod } from "@/types";
+import { STUDY_METHODS } from "@/types";
 
 type GroupDetails = Group & {
   member_count?: number;
+};
+
+const STATUS_BADGE: Record<string, { variant: BadgeVariant; label: string }> = {
+  focusing: { variant: "success", label: "Focusing" },
+  paused: { variant: "muted", label: "Paused" },
+  finished: { variant: "default", label: "Finished" },
+  idle: { variant: "muted", label: "Idle" },
 };
 
 export default function GroupDetailPage({
@@ -32,10 +41,42 @@ export default function GroupDetailPage({
   const [joinError, setJoinError] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [memberTick, setMemberTick] = useState(0);
 
   useEffect(() => {
     params.then((p) => setCode(p.code));
   }, [params]);
+
+  const todayKey = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  const effectiveAccumulated = useCallback(
+    (m: { accumulated_seconds?: number | null; last_active_date?: string | null }) =>
+      m.last_active_date === todayKey() ? (m.accumulated_seconds ?? 0) : 0,
+    [],
+  );
+
+  const liveSeconds = useCallback(
+    (m: { status?: string; session_started_at?: string | null }) => {
+      if (m.status === "focusing" && m.session_started_at) {
+        return Math.max(
+          0,
+          Math.floor(
+            (Date.now() - new Date(m.session_started_at).getTime()) / 1000,
+          ),
+        );
+      }
+      return 0;
+    },
+    [],
+  );
+
+  const todaySecondsFor = useCallback(
+    (m: GroupMember) => effectiveAccumulated(m) + liveSeconds(m),
+    [effectiveAccumulated, liveSeconds],
+  );
 
   const loadMembers = useCallback(async (groupId: string) => {
     const supabase = createClient();
@@ -96,6 +137,37 @@ export default function GroupDetailPage({
   useEffect(() => {
     loadGroup();
   }, [loadGroup]);
+
+  useEffect(() => {
+    if (status !== "member" || !group) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`group-members-${group.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "group_members",
+          filter: `group_id=eq.${group.id}`,
+        },
+        () => {
+          void loadMembers(group.id);
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [status, group, loadMembers]);
+
+  const hasActiveMembers = members.some((m) => m.status === "focusing");
+
+  useEffect(() => {
+    if (!hasActiveMembers) return;
+    const id = setInterval(() => setMemberTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [hasActiveMembers]);
 
   const handleJoin = async () => {
     if (!group || !userId || joining) return;
@@ -171,6 +243,11 @@ export default function GroupDetailPage({
   }
 
   const isFull = (group.member_count ?? 0) >= group.max_members;
+  const currentMember =
+    members.find((m) => m.user_id === userId) ?? null;
+  const sorted = [...members].sort(
+    (a, b) => todaySecondsFor(b) - todaySecondsFor(a),
+  );
 
   return (
     <div className="space-y-6">
@@ -229,9 +306,7 @@ export default function GroupDetailPage({
               Join to see the members and study together.
             </p>
           </div>
-          {joinError && (
-            <p className="text-sm text-red-500">{joinError}</p>
-          )}
+          {joinError && <p className="text-sm text-red-500">{joinError}</p>}
           <Button
             size="lg"
             onClick={handleJoin}
@@ -248,76 +323,162 @@ export default function GroupDetailPage({
           </Link>
         </Card>
       ) : (
-        <>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">
-                Share the code <span className="font-mono font-semibold text-foreground">{group.code}</span>{" "}
-                with your friends — they can join from the Groups page.
-              </p>
-            </CardContent>
-          </Card>
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-4">
+            {currentMember ? (
+              <GroupStudyPanel
+                key={currentMember.user_id}
+                groupId={group.id}
+                userId={currentMember.user_id}
+                member={currentMember}
+              />
+            ) : (
+              <div className="flex h-40 items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            )}
 
-          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            <Users className="h-4 w-4" />
-            Members ({members.length})
-          </h2>
-          {members.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                No members yet. Share the code to invite people.
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
-              {members.map((member) => {
-                const profile = member.profiles;
-                return (
-                  <div
-                    key={member.id}
-                    className={cn(
-                      "flex items-center gap-3 rounded-xl border p-3",
-                      member.user_id === userId
-                        ? "border-primary/30 bg-primary/5"
-                        : "border-border bg-card",
-                    )}
-                  >
-                    <Avatar
-                      src={profile?.avatar_url}
-                      alt={profile?.display_name ?? profile?.username ?? ""}
-                      fallback={profile?.display_name ?? profile?.username ?? "?"}
-                      size="md"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium">
-                          {profile?.display_name ?? profile?.username ?? "Unknown"}
-                          {member.user_id === userId && (
-                            <span className="text-muted-foreground"> (you)</span>
-                          )}
-                        </span>
+            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              <Users className="h-4 w-4" />
+              Members ({members.length})
+            </h2>
+            {members.length === 0 ? (
+              <Card>
+                <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                  No members yet. Share the code to invite people.
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
+                {members.map((member) => {
+                  const profile = member.profiles;
+                  const memberMethod =
+                    (member.study_method as StudyMethod) in STUDY_METHODS
+                      ? (member.study_method as StudyMethod)
+                      : "pomodoro";
+                  const statusInfo =
+                    STATUS_BADGE[member.status] ?? STATUS_BADGE.idle;
+                  const studied = todaySecondsFor(member);
+                  return (
+                    <div
+                      key={member.id}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl border p-3 transition-all",
+                        member.user_id === userId
+                          ? "border-primary/30 bg-primary/5"
+                          : "border-border bg-card",
+                        member.status === "focusing" &&
+                          "border-success/20 bg-success/5",
+                      )}
+                    >
+                      <Avatar
+                        src={profile?.avatar_url}
+                        alt={profile?.display_name ?? profile?.username ?? ""}
+                        fallback={profile?.display_name ?? profile?.username ?? "?"}
+                        size="md"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-sm font-medium">
+                            {profile?.display_name ?? profile?.username ?? "Unknown"}
+                            {member.user_id === userId && (
+                              <span className="text-muted-foreground"> (you)</span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-2 flex-wrap">
+                          <Badge variant={statusInfo.variant} size="sm">
+                            {statusInfo.label}
+                          </Badge>
+                          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                            {STUDY_METHODS[memberMethod].label}
+                          </span>
+                        </div>
                       </div>
-                      <div className="mt-1 flex items-center gap-2">
-                        <Badge
-                          variant={member.role === "owner" ? "accent" : "secondary"}
-                          size="sm"
-                          className="gap-1"
-                        >
-                          {member.role === "owner" && <Crown className="h-3 w-3" />}
-                          {member.role === "owner" ? "Owner" : "Member"}
-                        </Badge>
-                        <span className="text-[11px] text-muted-foreground">
-                          Joined{" "}
-                          {new Date(member.joined_at).toLocaleDateString()}
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className="flex items-center gap-1 text-sm font-semibold tabular-nums text-foreground">
+                          <Clock className="h-3.5 w-3.5 text-primary" />
+                          {formatTimer(studied)}
+                        </span>
+                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          today
                         </span>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              <Trophy className="h-4 w-4" />
+              Today&apos;s Focus
+            </h2>
+            <Card>
+              <CardContent className="p-0">
+                {sorted.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    No data yet
+                  </p>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {sorted.map((member, index) => (
+                      <div
+                        key={member.id}
+                        className={cn(
+                          "flex items-center gap-3 px-4 py-3",
+                          index === 0 && "bg-muted/30",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "w-6 text-center text-sm font-bold",
+                            index === 0 && "text-amber-500",
+                            index === 1 && "text-gray-400",
+                            index === 2 && "text-amber-700",
+                            index > 2 && "text-muted-foreground",
+                          )}
+                        >
+                          {index + 1}
+                        </span>
+                        <Avatar
+                          src={member.profiles?.avatar_url}
+                          alt={member.profiles?.display_name ?? member.profiles?.username ?? ""}
+                          fallback={member.profiles?.display_name ?? member.profiles?.username ?? "?"}
+                          size="sm"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="truncate text-sm font-medium block">
+                            {member.profiles?.display_name ?? member.profiles?.username ?? "Unknown"}
+                          </span>
+                        </div>
+                        <span className="flex items-center gap-1 text-xs tabular-nums text-muted-foreground shrink-0">
+                          <Clock className="h-3 w-3" />
+                          {formatTimer(todaySecondsFor(member))}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </>
+                )}
+              </CardContent>
+            </Card>
+
+            {currentMember && (
+              <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+                <Zap className="h-4 w-4 text-primary shrink-0" />
+                <p className="text-xs text-muted-foreground">
+                  Your focus today:{" "}
+                  <span className="font-semibold text-foreground">
+                    {formatTimer(todaySecondsFor(currentMember))}
+                  </span>
+                  {currentMember.status === "focusing" && " (counting up…)"}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
