@@ -20,6 +20,7 @@ type GroupDetails = Group & {
 
 const STATUS_BADGE: Record<string, { variant: BadgeVariant; label: string }> = {
   focusing: { variant: "success", label: "Focusing" },
+  break: { variant: "warning", label: "On Break" },
   paused: { variant: "muted", label: "Paused" },
   finished: { variant: "default", label: "Finished" },
   idle: { variant: "muted", label: "Idle" },
@@ -42,21 +43,11 @@ export default function GroupDetailPage({
   const [leaving, setLeaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [memberTick, setMemberTick] = useState(0);
+  const [todayTotals, setTodayTotals] = useState<Record<string, number>>({});
 
   useEffect(() => {
     params.then((p) => setCode(p.code));
   }, [params]);
-
-  const todayKey = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  };
-
-  const effectiveAccumulated = useCallback(
-    (m: { accumulated_seconds?: number | null; last_active_date?: string | null }) =>
-      m.last_active_date === todayKey() ? (m.accumulated_seconds ?? 0) : 0,
-    [],
-  );
 
   const liveSeconds = useCallback(
     (m: { status?: string; session_started_at?: string | null }) => {
@@ -74,19 +65,46 @@ export default function GroupDetailPage({
   );
 
   const todaySecondsFor = useCallback(
-    (m: GroupMember) => effectiveAccumulated(m) + liveSeconds(m),
-    [effectiveAccumulated, liveSeconds],
+    (m: GroupMember) => (todayTotals[m.user_id] ?? 0) + liveSeconds(m),
+    [todayTotals, liveSeconds],
   );
 
-  const loadMembers = useCallback(async (groupId: string) => {
+  const fetchTodayTotals = useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return;
     const supabase = createClient();
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
     const { data } = await supabase
-      .from("group_members")
-      .select("*, profiles:user_id(*)")
-      .eq("group_id", groupId)
-      .order("joined_at", { ascending: true });
-    if (data) setMembers((data as GroupMember[]) ?? []);
+      .from("study_sessions")
+      .select("user_id, actual_duration")
+      .in("user_id", ids)
+      .gte("started_at", start.toISOString())
+      .lt("started_at", end.toISOString())
+      .eq("status", "completed");
+    if (!data) return;
+    const totals: Record<string, number> = {};
+    for (const row of data) {
+      totals[row.user_id] = (totals[row.user_id] ?? 0) + (row.actual_duration ?? 0);
+    }
+    setTodayTotals(totals);
   }, []);
+
+  const loadMembers = useCallback(
+    async (groupId: string) => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("group_members")
+        .select("*, profiles:user_id(*)")
+        .eq("group_id", groupId)
+        .order("joined_at", { ascending: true });
+      const rows = (data as GroupMember[]) ?? [];
+      setMembers(rows);
+      void fetchTodayTotals(rows.map((m) => m.user_id));
+    },
+    [fetchTodayTotals],
+  );
 
   const loadGroup = useCallback(async () => {
     if (!code) return;
