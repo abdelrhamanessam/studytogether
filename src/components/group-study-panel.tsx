@@ -76,6 +76,7 @@ export function GroupStudyPanel({ groupId, userId, member }: GroupStudyPanelProp
   const hasResumedRef = useRef(false);
   const completedFocusRef = useRef(0);
   const finishingRef = useRef(false);
+  const sessionBaseRef = useRef(0);
   const methodRef = useRef(method);
   methodRef.current = method;
 
@@ -109,7 +110,9 @@ export function GroupStudyPanel({ groupId, userId, member }: GroupStudyPanelProp
           last_active_date: todayKey(),
         });
       } else {
-        completedFocusRef.current += focusDurationFor(methodRef.current);
+        if (isCountdownMethod(methodRef.current)) {
+          completedFocusRef.current += focusDurationFor(methodRef.current);
+        }
         playDoneSound();
         setPhaseNotice("All cycles done! Great work!");
         if (!finishingRef.current) {
@@ -168,6 +171,7 @@ export function GroupStudyPanel({ groupId, userId, member }: GroupStudyPanelProp
             cycle: 1,
           };
         } else {
+          sessionBaseRef.current = effectiveAccumulated(member);
           pendingResumeRef.current = {
             seconds: effectiveAccumulated(member) + elapsed,
             mode: "focus",
@@ -267,25 +271,31 @@ export function GroupStudyPanel({ groupId, userId, member }: GroupStudyPanelProp
       study_method: method,
       last_active_date: todayKey(),
     });
+    sessionBaseRef.current = 0;
     timer.start();
   }, [groupId, userId, method, targetMinutes, timerConfig.cycles, timer, saveMember]);
 
   const handlePause = useCallback(async () => {
     timer.pause();
     const countsDown = isCountdownMethod(method);
-    const currentElapsed = countsDown
-      ? timer.mode === "break" || timer.phaseComplete
-        ? 0
-        : Math.max(0, focusDurationFor(method) - timer.seconds)
-      : timer.seconds;
-    const sessionElapsed = completedFocusRef.current + currentElapsed;
+    let sessionElapsed: number;
+    let pausedRemaining: number;
+    if (countsDown) {
+      const currentElapsed =
+        timer.mode === "break" || timer.phaseComplete
+          ? 0
+          : Math.max(0, focusDurationFor(method) - timer.seconds);
+      sessionElapsed = completedFocusRef.current + currentElapsed;
+      pausedRemaining =
+        timer.mode === "break"
+          ? Math.max(1, timer.seconds)
+          : Math.max(1, focusDurationFor(method) - currentElapsed);
+    } else {
+      sessionElapsed = Math.max(0, timer.seconds - sessionBaseRef.current);
+      pausedRemaining = timer.seconds;
+    }
     const base = await baseAccumulated();
     const newAccumulated = base + sessionElapsed;
-    const pausedRemaining = countsDown
-      ? timer.mode === "break"
-        ? Math.max(1, timer.seconds)
-        : Math.max(1, focusDurationFor(method) - currentElapsed)
-      : newAccumulated;
 
     await saveMember({
       status: "paused",
@@ -297,30 +307,34 @@ export function GroupStudyPanel({ groupId, userId, member }: GroupStudyPanelProp
 
   const handleResume = useCallback(async () => {
     timer.resume();
+    if (!isCountdownMethod(method)) {
+      sessionBaseRef.current = timer.seconds;
+    }
     await saveMember({
       status: "focusing",
       session_started_at: new Date().toISOString(),
       paused_remaining_seconds: null,
       last_active_date: todayKey(),
     });
-  }, [timer, saveMember]);
+  }, [timer, method, saveMember]);
 
   const handleFinish = useCallback(async () => {
     timer.pause();
     const isCountUp = method === "stopwatch" || method === "target";
-    const countsDown = isCountdownMethod(method);
-    const sessionElapsed = isCountUp
-      ? timer.seconds
+    const accumulatedDelta = isCountUp
+      ? Math.max(0, timer.seconds - sessionBaseRef.current)
       : completedFocusRef.current +
         (timer.mode === "break" || timer.phaseComplete
           ? 0
           : Math.max(0, focusDurationFor(method) - timer.seconds));
-    const actualSeconds = Math.floor(Math.max(0, sessionElapsed));
+    const actualSeconds = isCountUp
+      ? timer.seconds
+      : Math.floor(Math.max(0, accumulatedDelta));
     const base = await baseAccumulated();
 
     await saveMember({
       status: "finished",
-      accumulated_seconds: base + actualSeconds,
+      accumulated_seconds: base + accumulatedDelta,
       last_active_date: todayKey(),
       paused_remaining_seconds: null,
     });
@@ -413,17 +427,21 @@ export function GroupStudyPanel({ groupId, userId, member }: GroupStudyPanelProp
 
     timer.reset();
     completedFocusRef.current = 0;
+    sessionBaseRef.current = 0;
     hasResumedRef.current = false;
   }, [userId, groupId, method, targetMinutes, member, timer, saveMember, effectiveAccumulated, sessionFocusElapsed]);
 
   const handleReset = useCallback(async () => {
     timer.reset();
     completedFocusRef.current = 0;
+    sessionBaseRef.current = 0;
     hasResumedRef.current = false;
     await saveMember({
       status: "idle",
       session_started_at: null,
       paused_remaining_seconds: null,
+      accumulated_seconds: 0,
+      last_active_date: todayKey(),
     });
   }, [timer, saveMember]);
 
@@ -454,6 +472,7 @@ export function GroupStudyPanel({ groupId, userId, member }: GroupStudyPanelProp
         .eq("status", "active");
 
       completedFocusRef.current = 0;
+      sessionBaseRef.current = 0;
       hasResumedRef.current = false;
       setMethodState(newMethod);
       await saveMember({
@@ -461,6 +480,8 @@ export function GroupStudyPanel({ groupId, userId, member }: GroupStudyPanelProp
         status: "idle",
         session_started_at: null,
         paused_remaining_seconds: null,
+        accumulated_seconds: 0,
+        last_active_date: todayKey(),
       });
     },
     [method, timer, saveMember, effectiveAccumulated, member, userId, groupId],
